@@ -1,0 +1,6 @@
+**__pycache__**
+*.mat
+*.m
+!matlab/*.m
+videos/*.mp4
+frames/*
