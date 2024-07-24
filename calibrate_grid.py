@@ -17,13 +17,6 @@ from matplotlib import pyplot as plt
 from skimage import measure
 from skimage import color as skc
 
-parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera in the RF source frame and the grid from a series from a given picture or pictures.')
-parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
-parser.add_argument('-p', '--plot', action='store_true', default=False, help='Show plots from the process.')
-parser.add_argument('-fp', '--fplot', action='store_true', default=False, help='Show plots from the process.')
-parser.add_argument('-sd', '--std_show', action='store_true', default=False, help='Show plots of the standard deviation.')
-
-
 
 def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot, skip, skipstart, skiplength):
 # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
@@ -388,6 +381,12 @@ def delta_E(image_1_rgb, color_target, sigma=2, dmax=1):
 
             
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera in the RF source frame and the grid from a series from a given picture or pictures.')
+    parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
+    parser.add_argument('-p', '--plot', action='store_true', default=False, help='Show plots from the process.')
+    parser.add_argument('-fp', '--fplot', action='store_true', default=False, help='Show plots from the process.')
+    parser.add_argument('-sd', '--std_show', action='store_true', default=False, help='Show plots of the standard deviation.')
+    
     # Get parse data
     args = parser.parse_args()
     calibrate_grid()
