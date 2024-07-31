@@ -122,23 +122,27 @@ def calibrate_grid():
 
     # RX0-II Camera intrinsic parameters for calibration
     # Camera matrix
-    fx = 2569.605957
-    fy = 2568.584961
-    cx = 1881.56543
-    cy = 1087.135376
+    # fx = 2569.605957 # 2684.27089
+    # fy = 2568.584961 # 1125.05137
+    # cx = 1881.565430 # 2315.60138
+    # cy = 1087.135376 # 1147.69833
+    fx = 2568.584961 # 1125.05137
+    fy = 2569.605957 # 2684.27089
+    cx = 1087.135376 # 1147.69833
+    cy = 1881.565430 # 2315.60138
 
     camera_matrix = np.array([[fx, 0., cx],
                             [0., fy, cy],
                             [0., 0., 1.]], dtype = "double")
 
     # Radial distortion coefficients
-    k1 = 0.019473
-    k2 = -0.041976
-    k3 = 0.030603
+    k1 =  0.019473 #  0.88010421
+    k2 = -0.041976 # -2.66361019
+    k3 =  0.030603 #  2.08744759 
 
     # Tangential distortion coefficients
-    p1 = -0.000273
-    p2 = -0.001083
+    p1 =  -0.000273 # 0.04255226
+    p2 =  -0.001083 # 0.00462325
 
     dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
@@ -176,6 +180,7 @@ def calibrate_grid():
         # Undistort image
         new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 1, (w, h))
         img_gray = cv2.undistort(img_gray, camera_matrix, dist_coeff, None, new_camera_matrix)
+        img0 = cv2.undistort(img0, camera_matrix, dist_coeff, None, new_camera_matrix)
         
         # Get a binary image by thresholding it with a bottom value of brightness (to find the line)
         _, BW = cv2.threshold(img_gray, line_threshold, 1, cv2.THRESH_BINARY)
@@ -334,8 +339,8 @@ def calibrate_grid():
 
 
         plt.figure()
-        plt.imshow(img_gray, cmap='gray')
-        # plt.imshow(img0[:,:,::-1])
+        # plt.imshow(img_gray, cmap='gray')
+        plt.imshow(cv2.cvtColor(img0, cv2.COLOR_BGR2RGB))
         
         x0 = [c[0], c[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
         y0 = [c[1], c[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
