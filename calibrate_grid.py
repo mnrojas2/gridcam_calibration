@@ -21,7 +21,7 @@ from skimage import color as skc
 def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot, skip, skipstart, skiplength):
 # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
 
-    # print(cntrd, I.shape, cntrd_offset, searchradius, plot, skip, skipstart, skiplength)
+    # print(f'cntrd={cntrd}, cntrd_offset={cntrd_offset}, searchradius={searchradius}, plot={plot}, skip={skip}, skipstart={skipstart}, skiplength={skiplength}')
     loopvar = np.arange(searchradius)
     
     # If skip flag is enabled, the list will skip a certain range, defined by skipstart, skiplength and the offset center
@@ -35,21 +35,25 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot, skip, skipst
     STD_vec = []
 
     for i in loopvar:
+        # Get slices of the image (rows), at a certain distance over and under the center of the line.
         top = I[int(np.floor(cntrd[0]-cntrd_offset-(i+1))), :]
         bot = I[int(np.floor(cntrd[0]+cntrd_offset+(i+1))), :]
         
         if sum(top) != 0 and sum(bot) != 0:
+            # Get the centroid location of the line in the top row
             top_weights = np.arange(1, 1+top.shape[-1]) * top
             top_cntrd = np.sum(top_weights) / np.sum(top)
             
+            # Get the centroid location of the line in the bottom row
             bot_weights = np.arange(1, 1+bot.shape[-1]) * bot
             bot_cntrd = np.sum(bot_weights) / np.sum(bot)
             
+            # Get the angles between the top and bottom centroids with respect from the center
             angle_top = np.degrees(np.arctan((top_cntrd - cntrd[1])/(cntrd_offset + (i+1))))
             angle_bot = np.degrees(np.arctan((bot_cntrd - cntrd[1])/(cntrd_offset + (i+1))))
-            
-            angle_diff = angle_top - angle_bot
-            radius_vector = cntrd_offset + (i+1)
+                       
+            # Get the difference between the top and bottom angles to get the average angle of the line
+            angle_diff = (angle_top - angle_bot)/2
             
             if angle_diff != 0:
                 valid_angle_diff.append(angle_diff)
@@ -122,33 +126,37 @@ def calibrate_grid():
 
     # RX0-II Camera intrinsic parameters for calibration
     # Camera matrix
-    # fx = 2569.605957 # 2684.27089
-    # fy = 2568.584961 # 1125.05137
-    # cx = 1881.565430 # 2315.60138
-    # cy = 1087.135376 # 1147.69833
-    fx = 2568.584961 # 1125.05137
-    fy = 2569.605957 # 2684.27089
-    cx = 1087.135376 # 1147.69833
-    cy = 1881.565430 # 2315.60138
+    # fx = 2569.605957
+    # fy = 2568.584961
+    # cx = 1881.565430
+    # cy = 1087.135376
+    fx = 2568.584961
+    fy = 2569.605957
+    cx = 1087.135376
+    cy = 1881.565430
 
     camera_matrix = np.array([[fx, 0., cx],
                             [0., fy, cy],
                             [0., 0., 1.]], dtype = "double")
 
     # Radial distortion coefficients
-    k1 =  0.019473 #  0.88010421
-    k2 = -0.041976 # -2.66361019
-    k3 =  0.030603 #  2.08744759 
+    k1 =  0.019473
+    k2 = -0.041976
+    k3 =  0.030603 
 
     # Tangential distortion coefficients
-    p1 =  -0.000273 # 0.04255226
-    p2 =  -0.001083 # 0.00462325
+    p1 =  -0.000273
+    p2 =  -0.001083
 
     dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
     # Get images from directory
     print(f"Searching images in {args.folder}/")
-    images = sorted(glob.glob(f'./frames/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    images = glob.glob(f'./frames/{args.folder}/*.jpg')
+    if len(images) == 0:
+        images = glob.glob(f'./frames/{args.folder}/*.png')
+    images = sorted(images, key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    
     images_list = []
     relangles = []
     stds = []
@@ -160,7 +168,7 @@ def calibrate_grid():
     """
     
     # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
-    center_threshold = 253.725
+    center_threshold = 200
     
     for fname in images:
         # Read the image
@@ -197,8 +205,10 @@ def calibrate_grid():
         BW = cv2.filter2D(BW, -1, kernel=np.ones((ws, ws)) / (ws**2), borderType=cv2.BORDER_CONSTANT)
         
         if args.plot:
+            plt.clf()
             plt.figure(0)
             plt.imshow(BW)
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-0.png', bbox_inches='tight', dpi=300)
         
         # Get another binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
         _, BW_cntrd = cv2.threshold(img_gray, center_threshold, 1, cv2.THRESH_BINARY)
@@ -211,6 +221,7 @@ def calibrate_grid():
         if args.plot:
             plt.figure(1)
             plt.imshow(BW_cntrd)
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-1.png', bbox_inches='tight', dpi=300)
         
         # Find the centroids of the laser traces in the image
         BW_cntrd_labels = measure.label(BW_cntrd)
@@ -224,6 +235,7 @@ def calibrate_grid():
             plt.imshow(BW_cntrd)
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-2.png', bbox_inches='tight', dpi=300)
         
         # Filter just a slice of the former thresholded to get the potential location of the polarized laser line
         BW[:, :int(np.ceil(cntrd[1])) - 60] = 0
@@ -232,6 +244,7 @@ def calibrate_grid():
         if args.plot:
             plt.figure(3)
             plt.imshow(BW)
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-3.png', bbox_inches='tight', dpi=300)
         
         # Find the optimized center point of the image
         # Calculate_gridangle function parameters
@@ -279,6 +292,7 @@ def calibrate_grid():
         print(final_str)
 
         if args.plot:
+            plt.figure(4)
             x0 = [c[0], c[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
             y0 = [c[1], c[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
 
@@ -291,6 +305,7 @@ def calibrate_grid():
             # plt.ylim(c[0]-cntrd_offset - search_radius, c[0]+cntrd_offset + search_radius)
             plt.xlim(c[1]-cntrd_offset - search_radius, c[1]+cntrd_offset + search_radius)
             
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-4.png', bbox_inches='tight', dpi=300)
             plt.show()
             
     relangles = np.array(relangles)

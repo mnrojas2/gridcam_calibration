@@ -4,3 +4,4 @@
 !matlab/*.m
 videos/*.mp4
 frames/*
+results/bin
