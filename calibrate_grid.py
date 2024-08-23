@@ -12,54 +12,39 @@ import glob
 import re
 import numpy as np
 import scipy.optimize
-import scipy.ndimage
-from matplotlib import pyplot as plt
+from scipy import ndimage
 from skimage import measure
 from skimage import color as skc
+from matplotlib import pyplot as plt
 
 
-def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot, skip, skipstart, skiplength):
+def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
 # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
+    # print(f'cntrd={cntrd}, cntrd_offset={cntrd_offset}, searchradius={searchradius}, plot={plot}')
 
-    # print(f'cntrd={cntrd}, cntrd_offset={cntrd_offset}, searchradius={searchradius}, plot={plot}, skip={skip}, skipstart={skipstart}, skiplength={skiplength}')
-    loopvar = np.arange(searchradius)
-    
-    # If skip flag is enabled, the list will skip a certain range, defined by skipstart, skiplength and the offset center
-    if skip == 1:
-        skipstart = skipstart - cntrd_offset
-        loopvar = loopvar[((loopvar <= skipstart) | (loopvar > skipstart + skiplength))]
-        
     # Create lists to save values for angle and standard deviation of the angle
     angle_vec = []
-    valid_angle_diff = []
     STD_vec = []
 
-    for i in loopvar:
+    for i in range(searchradius):
         # Get slices of the image (rows), at a certain distance over and under the center of the line.
-        top = I[int(np.floor(cntrd[0]-cntrd_offset-(i+1))), :]
-        bot = I[int(np.floor(cntrd[0]+cntrd_offset+(i+1))), :]
+        top = I[int(np.floor(cntrd[0]-cntrd_offset-i)), :]
+        bot = I[int(np.floor(cntrd[0]+cntrd_offset+i)), :]
         
-        if sum(top) != 0 and sum(bot) != 0:
-            # Get the centroid location of the line in the top row
-            top_weights = np.arange(1, 1+top.shape[-1]) * top
-            top_cntrd = np.sum(top_weights) / np.sum(top)
-            
-            # Get the centroid location of the line in the bottom row
-            bot_weights = np.arange(1, 1+bot.shape[-1]) * bot
-            bot_cntrd = np.sum(bot_weights) / np.sum(bot)
+        if sum(top) != 0 and sum(bot) != 0:            
+            # Get the centroid location of both rows
+            top_cntrd = ndimage.center_of_mass(top)[0]
+            bot_cntrd = ndimage.center_of_mass(bot)[0]
             
             # Get the angles between the top and bottom centroids with respect from the center
-            angle_top = np.degrees(np.arctan((top_cntrd - cntrd[1])/(cntrd_offset + (i+1))))
-            angle_bot = np.degrees(np.arctan((bot_cntrd - cntrd[1])/(cntrd_offset + (i+1))))
+            angle_top = np.degrees(np.arctan((top_cntrd - cntrd[1])/(cntrd_offset + i)))
+            angle_bot = np.degrees(np.arctan((bot_cntrd - cntrd[1])/(cntrd_offset + i)))
                        
             # Get the difference between the top and bottom angles to get the average angle of the line
-            angle_diff = (angle_top - angle_bot)/2
-            
-            if angle_diff != 0:
-                valid_angle_diff.append(angle_diff)
+            angle_diff = (angle_top - angle_bot)/2 # angle_top is defined as -angle, compared to angle_bot
 
-            angle_vec.append(angle_diff)  
-            STD_vec.append(np.std(valid_angle_diff))
+            angle_vec.append(angle_diff)
+            STD_vec.append(np.std(angle_vec))
     
     # Convert the lists to numpy ndarray format
     angle_vec = np.array(angle_vec)
@@ -73,11 +58,11 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot, skip, skipst
     STD_plot[STD_plot==0] = np.nan
 
     # Calculate the relative angle and standard deviation of the angle
-    relative_angle = np.mean(valid_angle_diff)
-    STD_final = np.std(valid_angle_diff)
+    relative_angle = np.mean(angle_vec)
+    STD_final = np.std(angle_vec)
     
     # If plot is enabled
-    if plot == 1:
+    if plot:
         # Create the x axis for the plot
         actual_radius = np.arange(1+cntrd_offset, 1+cntrd_offset+angle_plot.shape[-1])
         
@@ -112,13 +97,13 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot, skip, skipst
         
         # Plot an histogram of the obtained angle values
         plt.figure()
-        plt.hist(valid_angle_diff, bins=30, edgecolor='black')
+        plt.hist(angle_vec, bins=30, edgecolor='black')
         plt.title('Distribution of relative angles')
         plt.xlabel('Relative angle (deg)')
         plt.ylabel('Frequency')
         plt.show()
 
-    return STD_final, relative_angle
+    return relative_angle, STD_final
 
 # Main
 def calibrate_grid():
@@ -162,10 +147,8 @@ def calibrate_grid():
     stds = []
     
     # Change this value to segment only the projected line from the laser
-    line_threshold = 9
-    """
     # [original]=5.1, [gridtest, gridtest_p2]=220, [C0015, C0019, C0020]=9
-    """
+    line_threshold = 9
     
     # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
     center_threshold = 200
@@ -190,7 +173,35 @@ def calibrate_grid():
         img_gray = cv2.undistort(img_gray, camera_matrix, dist_coeff, None, new_camera_matrix)
         img0 = cv2.undistort(img0, camera_matrix, dist_coeff, None, new_camera_matrix)
         
-        # Get a binary image by thresholding it with a bottom value of brightness (to find the line)
+        
+        # Get a binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
+        _, BW_cntrd = cv2.threshold(img_gray, center_threshold, 1, cv2.THRESH_BINARY)
+        
+        center = np.array([1710, 550])
+        offset = np.array([150, 200])
+        BW_cntrd[center[0]-offset[0]:center[0]+offset[0], center[1]-offset[1]:center[1]+offset[1]] = 0 # C0019
+        
+        if args.plot:
+            plt.figure(0)
+            plt.imshow(BW_cntrd)
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-1.png', bbox_inches='tight', dpi=300)
+        
+        # Find the centroids of the laser traces in the image
+        BW_cntrd_labels = measure.label(BW_cntrd)
+        BW_cntrd_props = sorted(measure.regionprops(BW_cntrd_labels), key=lambda r: r.area, reverse=True)
+
+        # Choose the brightest centroid (the center of the laser trace)
+        cntrd = BW_cntrd_props[0].centroid
+        
+        if args.plot:
+            plt.figure(1)
+            plt.imshow(BW_cntrd)
+            plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
+            plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
+            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-2.png', bbox_inches='tight', dpi=300)
+        
+        
+        # Get another binary image by thresholding it with a bottom value of brightness (to find the line)
         _, BW = cv2.threshold(img_gray, line_threshold, 1, cv2.THRESH_BINARY)
         
         # Remove the smaller areas of the binary image
@@ -206,74 +217,18 @@ def calibrate_grid():
         
         if args.plot:
             plt.clf()
-            plt.figure(0)
+            plt.figure(2)
             plt.imshow(BW)
             # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-0.png', bbox_inches='tight', dpi=300)
         
-        # Get another binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
-        _, BW_cntrd = cv2.threshold(img_gray, center_threshold, 1, cv2.THRESH_BINARY)
-        # BW_cntrd[1650:1750, 550:700] = 0 # C0017
-        
-        center = np.array([1710, 550])
-        offset = np.array([150, 200])
-        BW_cntrd[center[0]-offset[0]:center[0]+offset[0], center[1]-offset[1]:center[1]+offset[1]] = 0 # C0019
-        
-        if args.plot:
-            plt.figure(1)
-            plt.imshow(BW_cntrd)
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-1.png', bbox_inches='tight', dpi=300)
-        
-        # Find the centroids of the laser traces in the image
-        BW_cntrd_labels = measure.label(BW_cntrd)
-        BW_cntrd_props = sorted(measure.regionprops(BW_cntrd_labels), key=lambda r: r.area, reverse=True)
-
-        # Choose the brightest centroid (most probably the center laser trace)
-        cntrd = BW_cntrd_props[0].centroid
-        
-        if args.plot:
-            plt.figure(2)
-            plt.imshow(BW_cntrd)
-            plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
-            plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-2.png', bbox_inches='tight', dpi=300)
-        
         # Filter just a slice of the former thresholded to get the potential location of the polarized laser line
-        BW[:, :int(np.ceil(cntrd[1])) - 60] = 0
-        BW[:, int(np.ceil(cntrd[1])) + 60:] = 0
+        BW[:, :int(np.ceil(cntrd[1])) - 100] = 0
+        BW[:, int(np.ceil(cntrd[1])) + 100:] = 0
         
         if args.plot:
             plt.figure(3)
             plt.imshow(BW)
             # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-3.png', bbox_inches='tight', dpi=300)
-        
-        # Find the optimized center point of the image
-        # Calculate_gridangle function parameters
-        cntrd_offset = 150#300
-        search_radius = 1000
-        
-        skip=0
-        skipstart=550
-        skiplength=100
-        
-        verbose=0
-
-        # Optimization parameters
-        # initial_guess (x0) = cntrd
-        
-        # Get bounds
-        cntrd_search_vert_m=0
-        cntrd_search_vert_p=0
-        cntrd_search_horz_m=0
-        cntrd_search_horz_p=0
-        cntrd_bounds = [(cntrd[0]-cntrd_search_vert_m, cntrd[0]+cntrd_search_vert_p), (cntrd[1]-cntrd_search_horz_m, cntrd[1]+cntrd_search_horz_p)]
-
-        # Optimizate the position of the center of the laser trace    
-        res = scipy.optimize.minimize(calculate_gridangle, cntrd, bounds=cntrd_bounds, method='L-BFGS-B', 
-                                        args=(BW, cntrd_offset, search_radius, verbose, skip, skipstart, skiplength), 
-                                        options={'maxiter': 10})
-        
-        # Get the resultant cntrd vector, now known as c
-        c = res.x
 
         if args.plot:
             plt.figure(4)
@@ -281,8 +236,12 @@ def calibrate_grid():
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
 
+        # Calculate_gridangle function parameters
+        cntrd_offset = 150
+        search_radius = 1000
+
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
-        error, angle = calculate_gridangle(c, BW, cntrd_offset, search_radius, args.std_show, skip, skipstart, skiplength)
+        angle, error = calculate_gridangle(cntrd, BW, cntrd_offset, search_radius, args.std_show)
         
         relangles.append(angle)
         stds.append(error)
@@ -293,17 +252,16 @@ def calibrate_grid():
 
         if args.plot:
             plt.figure(4)
-            x0 = [c[0], c[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
-            y0 = [c[1], c[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
+            x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
+            y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
 
             plt.plot(y0, x0, linestyle='--', color='red')
             
-            x1 = [c[0], c[0] + (cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
-            y1 = [c[1], c[1] + (cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
+            x1 = [cntrd[0], cntrd[0] + (cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
+            y1 = [cntrd[1], cntrd[1] + (cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
 
             plt.plot(y1, x1, linestyle='--', color='red')
-            # plt.ylim(c[0]-cntrd_offset - search_radius, c[0]+cntrd_offset + search_radius)
-            plt.xlim(c[1]-cntrd_offset - search_radius, c[1]+cntrd_offset + search_radius)
+            plt.xlim(cntrd[1]-cntrd_offset - search_radius, cntrd[1]+cntrd_offset + search_radius)
             
             # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-4.png', bbox_inches='tight', dpi=300)
             plt.show()
@@ -352,22 +310,20 @@ def calibrate_grid():
         plt.xlabel('Relative angle (deg)')
         plt.ylabel('Frequency')
 
-
+        # Plot image with the expected angled line
         plt.figure()
-        # plt.imshow(img_gray, cmap='gray')
         plt.imshow(cv2.cvtColor(img0, cv2.COLOR_BGR2RGB))
         
-        x0 = [c[0], c[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
-        y0 = [c[1], c[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
+        x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
+        y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
 
         plt.plot(y0, x0, linestyle='--', color='blue')
         
-        x1 = [c[0], c[0] + (cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
-        y1 = [c[1], c[1] + (cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
+        x1 = [cntrd[0], cntrd[0] + (cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
+        y1 = [cntrd[1], cntrd[1] + (cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
 
         plt.plot(y1, x1, linestyle='--', color='blue')
-        # plt.ylim(c[0]-cntrd_offset - search_radius, c[0]+cntrd_offset + search_radius)
-        plt.xlim(c[1]-cntrd_offset - search_radius, c[1]+cntrd_offset + search_radius)
+        plt.xlim(cntrd[1]-cntrd_offset - search_radius, cntrd[1]+cntrd_offset + search_radius)
         
         plt.show()
         
