@@ -227,7 +227,7 @@ def calibrate_grid():
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
 
-        
+
         # Calculate_gridangle function parameters
         cntrd_offset = 150
         search_radius = 1000
@@ -349,11 +349,11 @@ def delta_E(image_1_rgb, color_target, sigma=2, dmax=1):
 
             
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera in the RF source frame and the grid from a series from a given picture or pictures.')
+    parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera and polarized wave grid from a series of pictures.')
     parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
-    parser.add_argument('-p', '--plot', action='store_true', default=False, help='Show plots from the process.')
-    parser.add_argument('-fp', '--fplot', action='store_true', default=False, help='Show plots from the process.')
-    parser.add_argument('-sd', '--std_show', action='store_true', default=False, help='Show plots of the standard deviation.')
+    parser.add_argument('-p', '--plot', action='store_true', default=False, help='Show plots from each image showing some of the steps of the procedure to find the center, extension and angle of the projected laser trace.')
+    parser.add_argument('-fp', '--fplot', action='store_true', default=False, help='Show plots of accumulated results, including an histogram and a line with the average relative angle over the last frame.')
+    parser.add_argument('-sd', '--std_show', action='store_true', default=False, help='Show a plot of the standard deviation of the angle for each image.')
     
     # Get parse data
     args = parser.parse_args()

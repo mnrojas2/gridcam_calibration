@@ -7,7 +7,7 @@ from scipy import ndimage
 from skimage import measure
 from matplotlib import pyplot as plt
 
-parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera in the RF source frame and the grid from a series from a given picture or pictures.')
+parser = argparse.ArgumentParser(description='Obtains the relative error between the projected line and the calculated straight line.')
 parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
 parser.add_argument('-p', '--plot', action='store_true', default=False, help='Show plots from the process.')
 
