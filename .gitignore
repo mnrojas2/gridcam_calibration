@@ -4,4 +4,5 @@
 !matlab/*.m
 videos/*.mp4
 frames/*
-results/bin
+results/
+!results/C0020c*
