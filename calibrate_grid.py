@@ -20,7 +20,6 @@ from matplotlib import pyplot as plt
 
 def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
 # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
-    # print(f'cntrd={cntrd}, cntrd_offset={cntrd_offset}, searchradius={searchradius}, plot={plot}')
 
     # Create lists to save values for angle and standard deviation of the angle
     angle_vec = []
@@ -110,11 +109,7 @@ def calibrate_grid():
     # Get relative angle and error values from a set of images inside a folder
 
     # RX0-II Camera intrinsic parameters for calibration
-    # Camera matrix
-    # fx = 2569.605957
-    # fy = 2568.584961
-    # cx = 1881.565430
-    # cy = 1087.135376
+    # Camera matrix (x, y values are inverted since the image will be taken as vertical)
     fx = 2568.584961
     fy = 2569.605957
     cx = 1087.135376
@@ -146,10 +141,6 @@ def calibrate_grid():
     relangles = []
     stds = []
     
-    # Change this value to segment only the projected line from the laser
-    # [original]=5.1, [gridtest, gridtest_p2]=220, [C0015, C0019, C0020]=9
-    line_threshold = 9
-    
     # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
     centroid_threshold = 200
     
@@ -167,16 +158,9 @@ def calibrate_grid():
         h, w, _ = img0.shape
         if w > h:
             img0 = cv2.rotate(img0, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            
-        # # Convert the image to grayscale
-        # img_gray = cv2.cvtColor(img0, cv2.COLOR_RGB2GRAY)
-        
-        # Change contrast and brightness
-        # img_gray = cv2.convertScaleAbs(img_gray, alpha=1, beta=0) # Not useful for now
         
         # Undistort image
         new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 1, (w, h))
-        # img_gray = cv2.undistort(img_gray, camera_matrix, dist_coeff, None, new_camera_matrix)
         img0 = cv2.undistort(img0, camera_matrix, dist_coeff, None, new_camera_matrix)
         
         # Convert image to LAB
@@ -185,19 +169,13 @@ def calibrate_grid():
         # Get lightness channel
         img_labl = img_lab[:,:,0]
         
+        
         # Get a binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
         _, img_labl_max = cv2.threshold(img_labl, centroid_threshold, 1, cv2.THRESH_BINARY)
-        
-        # _, BW_cntrd = cv2.threshold(img_gray, center_threshold, 1, cv2.THRESH_BINARY)
-        
-        # center = np.array([1710, 550])
-        # offset = np.array([150, 200])
-        # BW_cntrd[center[0]-offset[0]:center[0]+offset[0], center[1]-offset[1]:center[1]+offset[1]] = 0 # C0019
         
         if args.plot:
             plt.figure(0)
             plt.imshow(img_labl_max)
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-1.png', bbox_inches='tight', dpi=300)
         
         # Find the centroids of the laser traces in the image
         BW_cntrd_labels = measure.label(img_labl_max)
@@ -215,22 +193,6 @@ def calibrate_grid():
             plt.imshow(img_labl_max)
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-2.png', bbox_inches='tight', dpi=300)
-        
-        
-        # # Get another binary image by thresholding it with a bottom value of brightness (to find the line)
-        # _, BW = cv2.threshold(img_gray, line_threshold, 1, cv2.THRESH_BINARY)
-        
-        # # Remove the smaller areas of the binary image
-        # BW = cv2.morphologyEx(BW, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
-        
-        # # # Erode away the boundaries of foreground object
-        # # erode_ker = np.array([[0, 0, 1, 0, 0],[0, 1, 1, 1, 0],[1, 1, 1, 1, 1],[0, 1, 1, 1, 0],[0, 0, 1, 0, 0]], dtype=np.uint8)
-        # # BW = cv2.erode(BW, kernel=erode_ker, borderType=cv2.BORDER_CONSTANT)
-        
-        # # Apply an average filter of window length 8
-        # ws = 8
-        # BW = cv2.filter2D(BW, -1, kernel=np.ones((ws, ws)) / (ws**2), borderType=cv2.BORDER_CONSTANT)
         
         
         # Change contrast and brightness of the image
@@ -250,7 +212,6 @@ def calibrate_grid():
         if args.plot:
             plt.figure(2)
             plt.imshow(BW)
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-0.png', bbox_inches='tight', dpi=300)
         
         
         # Filter just a slice of the former thresholded to get the potential location of the polarized laser line
@@ -260,13 +221,13 @@ def calibrate_grid():
         if args.plot:
             plt.figure(3)
             plt.imshow(BW)
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-3.png', bbox_inches='tight', dpi=300)
 
             plt.figure(4)
             plt.imshow(BW)
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
 
+        
         # Calculate_gridangle function parameters
         cntrd_offset = 150
         search_radius = 1000
