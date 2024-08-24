@@ -47,8 +47,7 @@ if len(images) == 0:
 images = sorted(images, key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
 images_list = []
-relangles = []
-stds = []
+line_distance = []
 
 # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
 centroid_threshold = 200
@@ -58,6 +57,7 @@ mask_window = 150
 
 # Change this value to adjust the minimum size of objects in the binarized image while trying to get the best laser trace
 small_object_threshold = 500
+
 
 for fname in images:
     img0 = cv2.imread(fname)
@@ -108,7 +108,7 @@ for fname in images:
     BW = (morphology.remove_small_objects(np.array(img_erode, dtype=bool), small_object_threshold)).astype(int)
     
     # Get relative angle from file
-    rel_angle = -0.5130709172843116 # Hardcoded
+    rel_angle = -0.5130709172843116 # Hardcoded #<<<<<<<<<<<<<<<<<<<<<
     
     # Determine the slope and offset to plot it in the image later
     m = np.tan(np.radians(-rel_angle))
@@ -121,6 +121,7 @@ for fname in images:
     cntrd_offset = 150
     search_radius = 1000
 
+    # Get the list of centroids from each row where the line is visible
     row_centroids_top = [[x, float(ndimage.center_of_mass(BW[x,:])[0])] for x in range(int(cntrd[0]) - search_radius, int(cntrd[0]) - cntrd_offset) if not np.isnan(ndimage.center_of_mass(BW[x,:])[0])]
     row_centroids_bot = [[x, float(ndimage.center_of_mass(BW[x,:])[0])] for x in range(int(cntrd[0]) + cntrd_offset, int(cntrd[0]) + search_radius) if not np.isnan(ndimage.center_of_mass(BW[x,:])[0])]
     
@@ -128,6 +129,7 @@ for fname in images:
     row_centroids_bot = np.array(row_centroids_bot)
     row_centroids = np.concatenate([row_centroids_top, row_centroids_bot])
     
+    # Plot the straight line, the centroid of the laser trace and the line following the centroids of each row
     if args.plot:
         plt.figure()
         plt.imshow(BW)
@@ -135,6 +137,7 @@ for fname in images:
         plt.plot(cntrd[1], cntrd[0], 'o')
         plt.plot(row_centroids[:,1], row_centroids[:,0])
     
+    # Calculate the average distance between the centroid line and the laser trace line
     dist_sum = 0
     for i in range(row_centroids.shape[0]):
         xi, yi = row_centroids[i, :]
@@ -152,7 +155,23 @@ for fname in images:
         
         # Add this distance to get the average
         dist_sum += dist
-    print(f"Average error between laser trace and straight line: {dist_sum/row_centroids.shape[0]} pixels")
+    
+    line_distance.append(dist_sum/row_centroids.shape[0])
+    
+    final_str = f"{fname.split('\\')[-1]} average error between laser trace and straight line is: {dist_sum/row_centroids.shape[0]}"
+    images_list.append(final_str)
+    print(final_str)
     
     if args.plot:
         plt.show()
+
+line_distance = np.array(line_distance)
+
+meanstd = f"Average distance between laser trace and straight line is: {line_distance.mean()}, standard deviation is: {line_distance.std()}."
+print(meanstd)  
+   
+with open(f"{args.folder}_distance_error.txt", 'w') as f:
+    for line in images_list:
+        f.write(f"{line}\n")
+    f.write(f"{meanstd}\n")
+f.close()
