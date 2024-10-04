@@ -261,7 +261,7 @@ def calibrate_grid():
     relangles = np.array(relangles)
     stds = np.array(stds)
     
-    meanstd = f"Average relative angle is: {relangles.mean()}, average error is: {stds.mean()}, standard deviation from relative angles is: {relangles.std()}."
+    meanstd = f"Average image relative angle is: {relangles.mean()} deg, average image error is: {stds.mean()} deg, standard deviation from images relative angles is: {relangles.std()} deg."
     print(meanstd)           
     
     with open(f"{args.folder}_output_python.txt", 'w') as f:
