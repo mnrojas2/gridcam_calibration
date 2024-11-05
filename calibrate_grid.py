@@ -215,7 +215,7 @@ def calibrate_grid_main():
         cntrd_offset = 150
 
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
-        angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, trace_length, args.std_show)
+        angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, args.std_show)
         
         relangles.append(angle)
         stds.append(error)
