@@ -18,7 +18,7 @@ from skimage import color as skc
 from matplotlib import pyplot as plt
 
 
-def calculate_grid_angle(cntrd, I, cntrd_offset, radius, plot):
+def calculate_grid_angle(cntrd, I, cntrd_offset, plot):
 # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
 
     # Get all row centroids and determine the distance between all centroids and the center of the line (cntrd).
@@ -31,34 +31,6 @@ def calculate_grid_angle(cntrd, I, cntrd_offset, radius, plot):
     # Calculate angles
     angles_calc = ((row_filtered[:, 1]-row_filtered[::-1, 1])/(row_filtered[:, 0]-row_filtered[::-1, 0]))
     angle_vec = -np.degrees(np.arctan(angles_calc[:len(angles_calc)//2-1]))[::-1]
-    
-    """ Create lists to save values for angle and standard deviation of the angle
-    angle_vec = []
-    STD_vec = []
-
-    for i in range(radius):
-        # Get slices of the image (rows), at a certain distance over and under the center of the line.
-        top = I[int(np.floor(cntrd[0]-(cntrd_offset+i))), :]
-        bot = I[int(np.floor(cntrd[0]+(cntrd_offset+i))), :]
-        
-        if sum(top) != 0 and sum(bot) != 0:            
-            # Get the centroid location of both rows
-            top_cntrd = ndimage.center_of_mass(top)[0]
-            bot_cntrd = ndimage.center_of_mass(bot)[0]
-            
-            # Get the angles between the top and bottom centroids with respect from the center
-            angle_top = np.degrees(np.arctan((top_cntrd - cntrd[1])/(cntrd_offset + i)))
-            angle_bot = np.degrees(np.arctan((bot_cntrd - cntrd[1])/(cntrd_offset + i)))
-            
-            # Get the difference between the top and bottom angles to get the average angle of the line
-            angle_diff = (angle_top - angle_bot)/2 # angle_top is defined as -angle, compared to angle_bot
-
-            angle_vec.append(angle_diff)
-            STD_vec.append(np.std(angle_vec))
-    
-    # Convert the lists to numpy ndarray format
-    angle_vec = np.array(angle_vec)
-    STD_vec = np.array(STD_vec) # """
 
     # Calculate the relative angle and standard deviation of the angle
     relative_angle = np.mean(angle_vec)
@@ -239,13 +211,11 @@ def calibrate_grid_main():
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
 
-
-        # Calculate_gridangle function parameters
+        # Determine offset distance from line center to skip the brightest part of the line
         cntrd_offset = 150
-        search_radius = 1000
 
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
-        angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, search_radius, args.std_show)
+        angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, trace_length, args.std_show)
         
         relangles.append(angle)
         stds.append(error)
@@ -255,17 +225,19 @@ def calibrate_grid_main():
         print(final_str)
 
         if args.plot:
+            trace_length = 1000
+            
             plt.figure(4)
-            x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
-            y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
+            x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
+            y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
 
             plt.plot(y0, x0, linestyle='--', color='red')
             
-            x1 = [cntrd[0], cntrd[0] + (cntrd_offset + search_radius) * np.cos(np.deg2rad(-angle))]
-            y1 = [cntrd[1], cntrd[1] + (cntrd_offset + search_radius) * np.sin(np.deg2rad(-angle))]
+            x1 = [cntrd[0], cntrd[0] + (cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
+            y1 = [cntrd[1], cntrd[1] + (cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
 
             plt.plot(y1, x1, linestyle='--', color='red')
-            plt.xlim(cntrd[1]-cntrd_offset - search_radius, cntrd[1]+cntrd_offset + search_radius)
+            plt.xlim(cntrd[1]-cntrd_offset - trace_length, cntrd[1]+cntrd_offset + trace_length)
             
             # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-4.png', bbox_inches='tight', dpi=300)
             plt.show()
@@ -318,16 +290,16 @@ def calibrate_grid_main():
         plt.figure()
         plt.imshow(cv2.cvtColor(img0, cv2.COLOR_BGR2RGB))
         
-        x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
-        y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
+        x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-relangles.mean()))]
+        y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-relangles.mean()))]
 
         plt.plot(y0, x0, linestyle='--', color='blue')
         
-        x1 = [cntrd[0], cntrd[0] + (cntrd_offset + search_radius) * np.cos(np.deg2rad(-relangles.mean()))]
-        y1 = [cntrd[1], cntrd[1] + (cntrd_offset + search_radius) * np.sin(np.deg2rad(-relangles.mean()))]
+        x1 = [cntrd[0], cntrd[0] + (cntrd_offset + trace_length) * np.cos(np.deg2rad(-relangles.mean()))]
+        y1 = [cntrd[1], cntrd[1] + (cntrd_offset + trace_length) * np.sin(np.deg2rad(-relangles.mean()))]
 
         plt.plot(y1, x1, linestyle='--', color='blue')
-        plt.xlim(cntrd[1]-cntrd_offset - search_radius, cntrd[1]+cntrd_offset + search_radius)
+        plt.xlim(cntrd[1]-cntrd_offset - trace_length, cntrd[1]+cntrd_offset + trace_length)
         
         plt.show()
         
