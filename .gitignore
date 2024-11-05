@@ -5,4 +5,5 @@
 videos/*.mp4
 frames/*
 results/previous
+results/new_filter
 results/bin

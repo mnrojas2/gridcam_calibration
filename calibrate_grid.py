@@ -18,17 +18,28 @@ from skimage import color as skc
 from matplotlib import pyplot as plt
 
 
-def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
+def calculate_grid_angle(cntrd, I, cntrd_offset, radius, plot):
 # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
 
-    # Create lists to save values for angle and standard deviation of the angle
+    # Get all row centroids and determine the distance between all centroids and the center of the line (cntrd).
+    row_cntrd = center_of_mass_per_row(I, cntrd)
+    
+    # Filter all elements near the center (cntrd_offset) and get the maximum distance shared by both tails.
+    row_filtered = row_cntrd[(row_cntrd[:, 2] < np.min([row_cntrd[0, 2], row_cntrd[-1, 2]])) & (row_cntrd[:, 2] >= cntrd_offset)]
+    row_filtered = row_filtered[(row_filtered[:, 2] < np.min([row_filtered[0, 2], row_filtered[-1, 2]]))]
+    
+    # Calculate angles
+    angles_calc = ((row_filtered[:, 1]-row_filtered[::-1, 1])/(row_filtered[:, 0]-row_filtered[::-1, 0]))
+    angle_vec = -np.degrees(np.arctan(angles_calc[:len(angles_calc)//2-1]))[::-1]
+    
+    """ Create lists to save values for angle and standard deviation of the angle
     angle_vec = []
     STD_vec = []
 
-    for i in range(searchradius):
+    for i in range(radius):
         # Get slices of the image (rows), at a certain distance over and under the center of the line.
-        top = I[int(np.floor(cntrd[0]-cntrd_offset-i)), :]
-        bot = I[int(np.floor(cntrd[0]+cntrd_offset+i)), :]
+        top = I[int(np.floor(cntrd[0]-(cntrd_offset+i))), :]
+        bot = I[int(np.floor(cntrd[0]+(cntrd_offset+i))), :]
         
         if sum(top) != 0 and sum(bot) != 0:            
             # Get the centroid location of both rows
@@ -38,7 +49,7 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
             # Get the angles between the top and bottom centroids with respect from the center
             angle_top = np.degrees(np.arctan((top_cntrd - cntrd[1])/(cntrd_offset + i)))
             angle_bot = np.degrees(np.arctan((bot_cntrd - cntrd[1])/(cntrd_offset + i)))
-                       
+            
             # Get the difference between the top and bottom angles to get the average angle of the line
             angle_diff = (angle_top - angle_bot)/2 # angle_top is defined as -angle, compared to angle_bot
 
@@ -47,14 +58,7 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
     
     # Convert the lists to numpy ndarray format
     angle_vec = np.array(angle_vec)
-    STD_vec = np.array(STD_vec)
-    
-    # Create new lists of angle and standard deviation for plotting, where zero values are replaced by np.nan
-    angle_plot = angle_vec.copy()
-    angle_plot[angle_plot==0] = np.nan
-    
-    STD_plot = STD_vec.copy()
-    STD_plot[STD_plot==0] = np.nan
+    STD_vec = np.array(STD_vec) # """
 
     # Calculate the relative angle and standard deviation of the angle
     relative_angle = np.mean(angle_vec)
@@ -62,6 +66,14 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
     
     # If plot is enabled
     if plot:
+        # Create new lists of angle and standard deviation for plotting, where zero values are replaced by np.nan
+        angle_plot = angle_vec.copy()
+        angle_plot[angle_plot==0] = np.nan
+        
+        # Calculate incremental STD angles
+        STD_plot = np.array([np.std(angle_vec[:i]) for i in range(len(angle_vec))])
+        STD_plot[STD_plot==0] = np.nan
+        
         # Create the x axis for the plot
         actual_radius = np.arange(1+cntrd_offset, 1+cntrd_offset+angle_plot.shape[-1])
         
@@ -105,7 +117,7 @@ def calculate_gridangle(cntrd, I, cntrd_offset, searchradius, plot):
     return relative_angle, STD_final
 
 # Main
-def calibrate_grid():
+def calibrate_grid_main():
     # Get relative angle and error values from a set of images inside a folder
 
     # RX0-II Camera intrinsic parameters for calibration
@@ -233,7 +245,7 @@ def calibrate_grid():
         search_radius = 1000
 
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
-        angle, error = calculate_gridangle(cntrd, BW, cntrd_offset, search_radius, args.std_show)
+        angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, search_radius, args.std_show)
         
         relangles.append(angle)
         stds.append(error)
@@ -347,6 +359,17 @@ def delta_E(image_1_rgb, color_target, sigma=2, dmax=1):
 
     return fimage #, minDeltaE, Lab1, Lab2, deltae1, deltae
 
+def center_of_mass_per_row(image, centroid):
+# Calculate the center of mass of an image per each row
+    rows_centroid = []
+    for i in range(len(image)):
+        if np.sum(image[i]) != 0:
+            com = ndimage.center_of_mass(image[i])[0]
+            dst = np.linalg.norm(np.array((i,com))-centroid)
+            rows_centroid.append([i, com, dst])
+    rows_centroid = np.array(rows_centroid)
+    return rows_centroid
+
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera and polarized wave grid from a series of pictures.')
@@ -357,4 +380,4 @@ if __name__ == '__main__':
     
     # Get parse data
     args = parser.parse_args()
-    calibrate_grid()
+    calibrate_grid_main()
