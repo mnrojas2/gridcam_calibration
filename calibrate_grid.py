@@ -211,8 +211,11 @@ def calibrate_grid_main():
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
 
-        # Determine offset distance from line center to skip the brightest part of the line
+        # Set offset distance from line center to skip the brightest part of the line
         cntrd_offset = 150
+        
+        # Set expected line length from center
+        trace_length = 1000
 
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
         angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, args.std_show)
@@ -224,9 +227,7 @@ def calibrate_grid_main():
         images_list.append(final_str)
         print(final_str)
 
-        if args.plot:
-            trace_length = 1000
-            
+        if args.plot:            
             plt.figure(4)
             x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
             y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
