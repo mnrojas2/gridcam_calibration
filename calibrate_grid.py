@@ -28,12 +28,18 @@ def calculate_grid_angle(cntrd, I, cntrd_offset, plot):
     row_filtered = row_cntrd[(row_cntrd[:, 2] < np.min([row_cntrd[0, 2], row_cntrd[-1, 2]])) & (row_cntrd[:, 2] >= cntrd_offset)]
     row_filtered = row_filtered[(row_filtered[:, 2] < np.min([row_filtered[0, 2], row_filtered[-1, 2]]))]
     
+    # Calculate weights
+    distances = np.linalg.norm(row_filtered[:, :2] - row_filtered[::-1, :2], axis=1)
+    row_widths = row_filtered[:, 3]+row_filtered[::-1, 3]
+    angle_weights = (distances/row_widths)[:len(distances)//2-1][::-1]
+    angle_weights = angle_weights/np.sum(angle_weights)
+    
     # Calculate angles
     angles_calc = ((row_filtered[:, 1]-row_filtered[::-1, 1])/(row_filtered[:, 0]-row_filtered[::-1, 0]))
     angle_vec = -np.degrees(np.arctan(angles_calc[:len(angles_calc)//2-1]))[::-1]
 
     # Calculate the relative angle and standard deviation of the angle
-    relative_angle = np.mean(angle_vec)
+    relative_angle = np.average(angle_vec, weights=angle_weights)
     STD_final = np.std(angle_vec)
     
     # If plot is enabled
@@ -339,7 +345,7 @@ def center_of_mass_per_row(image, centroid):
         if np.sum(image[i]) != 0:
             com = ndimage.center_of_mass(image[i])[0]
             dst = np.linalg.norm(np.array((i,com))-centroid)
-            rows_centroid.append([i, com, dst])
+            rows_centroid.append([i, com, dst, np.sum(image[i])])
     rows_centroid = np.array(rows_centroid)
     return rows_centroid
 
