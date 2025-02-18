@@ -12,6 +12,7 @@ import glob
 import re
 import numpy as np
 import scipy.optimize
+import camera
 from scipy import ndimage
 from skimage import measure, morphology
 from skimage import color as skc
