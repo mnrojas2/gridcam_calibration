@@ -100,31 +100,35 @@ def calibrate_grid_main():
 
     # RX0-II Camera intrinsic parameters for calibration
     # Camera matrix (x, y values are inverted since the image will be taken as vertical)
-    fx = 2568.584961
-    fy = 2569.605957
-    cx = 1087.135376
-    cy = 1881.565430
+    if args.calibfile:
+        cam = camera.Camera(args.calibfile)
+        camera_matrix = cam.cam_matrix()
+        dist_coeff = cam.dist_coeff()
+    else:
+        # Camera matrix
+        fx = 2568.584961
+        fy = 2569.605957
+        cx = 1087.135376
+        cy = 1881.56543
 
-    camera_matrix = np.array([[fx, 0., cx],
-                            [0., fy, cy],
-                            [0., 0., 1.]], dtype = "double")
+        camera_matrix = np.array([[fx, 0., cx],
+                                    [0., fy, cy],
+                                    [0., 0., 1.]], dtype = "double")
 
-    # Radial distortion coefficients
-    k1 =  0.019473
-    k2 = -0.041976
-    k3 =  0.030603 
+        # Distortion coefficients
+        k1 = 0.019473
+        k2 = -0.041976
+        p1 = -0.000273
+        p2 = -0.001083
+        k3 = 0.030603
 
-    # Tangential distortion coefficients
-    p1 =  -0.000273
-    p2 =  -0.001083
-
-    dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
+        dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
     # Get images from directory
     print(f"Searching images in {args.folder}/")
-    images = glob.glob(f'./frames/{args.folder}/*.jpg')
+    images = glob.glob(f'./sets/{args.folder}/*.jpg')
     if len(images) == 0:
-        images = glob.glob(f'./frames/{args.folder}/*.png')
+        images = glob.glob(f'./sets/{args.folder}/*.png')
     images = sorted(images, key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
     images_list = []
@@ -132,7 +136,7 @@ def calibrate_grid_main():
     stds = []
     
     # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
-    centroid_threshold = 200
+    centroid_threshold = 250#200
     
     # Change this value to increase or decrease the horizontal (vertical) range where the laser trace would be in the image
     mask_window = 150
@@ -144,14 +148,16 @@ def calibrate_grid_main():
         # Read the image
         img0 = cv2.imread(fname)
         
-        # If the image is not vertical, rotate it
+        # Get height and width of the image
         h, w, _ = img0.shape
-        if w > h:
-            img0 = cv2.rotate(img0, cv2.ROTATE_90_COUNTERCLOCKWISE)
         
         # Undistort image
         new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 1, (w, h))
         img0 = cv2.undistort(img0, camera_matrix, dist_coeff, None, new_camera_matrix)
+        
+        # If the image is not vertical, rotate it
+        if w > h:
+            img0 = cv2.rotate(img0, cv2.ROTATE_90_COUNTERCLOCKWISE)
         
         # Convert image to LAB
         img_lab = cv2.cvtColor(img0, cv2.COLOR_BGR2LAB)
@@ -189,15 +195,25 @@ def calibrate_grid_main():
         img_labl = cv2.convertScaleAbs(img_labl, alpha=10, beta=0)
         
         # Use an adaptative threshold to now get as much as possible of the line
-        img_labl_BW = cv2.adaptiveThreshold(img_labl, 1, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, 2)
+        clr = 'g'
+        if clr == 'r':
+            # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image
+            adp_thr_c = 2
+        elif clr == 'g':
+            # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image 
+            adp_thr_c = -127
+        img_labl_BW = cv2.adaptiveThreshold(img_labl, 1, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, adp_thr_c)
         
         # Apply the filter around the centroid to only keep the line
         img_labl_BW = cv2.bitwise_and(img_labl_BW, img_labl_BW, mask = mask)
         
         # Remove small objects from the image, to only keep the laser trace
-        img_open = cv2.morphologyEx(img_labl_BW, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 21)))
-        img_erode = cv2.morphologyEx(img_open, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 21)))
-        BW = (morphology.remove_small_objects(np.array(img_erode, dtype=bool), small_object_threshold)).astype(int)
+        if clr == 'r':
+            img_open = cv2.morphologyEx(img_labl_BW, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 21)))
+            img_erode = cv2.morphologyEx(img_open, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 21)))
+            BW = (morphology.remove_small_objects(np.array(img_erode, dtype=bool), small_object_threshold)).astype(int)
+        else:
+            BW = img_labl_BW
         
         if args.plot:
             plt.figure(2)
@@ -353,6 +369,7 @@ def center_of_mass_per_row(image, centroid):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera and polarized wave grid from a series of pictures.')
     parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
+    parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
     parser.add_argument('-p', '--plot', action='store_true', default=False, help='Show plots from each image showing some of the steps of the procedure to find the center, extension and angle of the projected laser trace.')
     parser.add_argument('-fp', '--fplot', action='store_true', default=False, help='Show plots of accumulated results, including an histogram and a line with the average relative angle over the last frame.')
     parser.add_argument('-sd', '--std_show', action='store_true', default=False, help='Show a plot of the standard deviation of the angle for each image.')
