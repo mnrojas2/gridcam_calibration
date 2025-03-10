@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 Author original code for MATLAB: fcarrero
 Script translation and updates to Python by mnrojas2
@@ -377,4 +379,6 @@ if __name__ == '__main__':
     
     # Get parse data
     args = parser.parse_args()
+    
+    # Main
     calibrate_grid_main()
