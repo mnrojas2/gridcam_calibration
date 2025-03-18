@@ -8,8 +8,9 @@ Script translation and updates to Python by mnrojas2
 * Requires having all images inside a folder. If get_frames was run first, then the folder was created automatically.
 """
 
-import cv2
+import os
 import argparse
+import cv2 as cv
 import glob
 import re
 import numpy as np
@@ -22,7 +23,7 @@ from matplotlib import pyplot as plt
 
 
 def calculate_grid_angle(cntrd, I, cntrd_offset, plot):
-# Auxiliary function to calculate the relative angle between the grid and the camera in the frame
+    # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
 
     # Get all row centroids and determine the distance between all centroids and the center of the line (cntrd).
     row_cntrd = center_of_mass_per_row(I, cntrd)
@@ -97,6 +98,47 @@ def calculate_grid_angle(cntrd, I, cntrd_offset, plot):
 
     return relative_angle, STD_final
 
+
+def delta_E(image_1_rgb, color_target, sigma=2, dmax=1):
+# Color filter function from photogrammetry software (Author: Federico Astori)
+    
+    # Convert image from RGB to CIE Lab
+    Lab1 = cv.cvtColor((image_1_rgb/255).astype('float32'), cv.COLOR_RGB2LAB)
+    
+    # Rewrite the color_target vector from RGB to CIE Lab
+    Lab2 = skc.rgb2lab(color_target.reshape(1, 1, 3))
+
+    # Calculate the difference of color between the image and the color target value
+    deltae1 = skc.deltaE_ciede2000(Lab1, Lab2)
+    
+    # Apply a gaussian filter
+    deltae = scipy.ndimage.gaussian_filter(deltae1,3)
+    
+    # Determine minimum value of the previous result
+    minDeltaE = np.min(deltae)
+
+    # If the difference between the blurred image pixel and the color target is less than 60, then calculates fimage, otherwise return an array of zeros
+    if minDeltaE < 60:
+        fimage = dmax * np.exp(-(deltae-minDeltaE)**2/(2*(sigma**2)))
+        fimage[fimage<0.65] = 0
+    else:
+        fimage = np.zeros_like(deltae) #np.nan
+
+    return fimage #, minDeltaE, Lab1, Lab2, deltae1, deltae
+
+
+def center_of_mass_per_row(image, centroid):
+# Calculate the center of mass of an image per each row
+    rows_centroid = []
+    for i in range(len(image)):
+        if np.sum(image[i]) != 0:
+            com = ndimage.center_of_mass(image[i])[0]
+            dst = np.linalg.norm(np.array((i,com))-centroid)
+            rows_centroid.append([i, com, dst, np.sum(image[i])])
+    rows_centroid = np.array(rows_centroid)
+    return rows_centroid
+
+
 # Main
 def calibrate_grid_main():
     # Get relative angle and error values from a set of images inside a folder
@@ -128,10 +170,10 @@ def calibrate_grid_main():
         dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
     # Get images from directory
-    print(f"Searching images in {args.folder}/")
-    images = glob.glob(f'./sets/{args.folder}/*.jpg')
+    print(f"Searching for images in {args.folder}/")
+    images = glob.glob(f'{args.folder}/*.jpg')
     if len(images) == 0:
-        images = glob.glob(f'./sets/{args.folder}/*.png')
+        images = glob.glob(f'{args.folder}/*.png')
     images = sorted(images, key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
     images_list = []
@@ -149,28 +191,28 @@ def calibrate_grid_main():
     
     for fname in images:
         # Read the image
-        img0 = cv2.imread(fname)
+        img0 = cv.imread(fname)
         
         # Get height and width of the image
         h, w, _ = img0.shape
         
         # Undistort image
-        new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 1, (w, h))
-        img0 = cv2.undistort(img0, camera_matrix, dist_coeff, None, new_camera_matrix)
+        new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 1, (w, h))
+        img0 = cv.undistort(img0, camera_matrix, dist_coeff, None, new_camera_matrix)
         
         # If the image is not vertical, rotate it
         if w > h:
-            img0 = cv2.rotate(img0, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            img0 = cv.rotate(img0, cv.ROTATE_90_COUNTERCLOCKWISE)
         
         # Convert image to LAB
-        img_lab = cv2.cvtColor(img0, cv2.COLOR_BGR2LAB)
+        img_lab = cv.cvtColor(img0, cv.COLOR_BGR2LAB)
 
         # Get lightness channel
         img_labl = img_lab[:,:,0]
         
         
         # Get a binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
-        _, img_labl_max = cv2.threshold(img_labl, centroid_threshold, 1, cv2.THRESH_BINARY)
+        _, img_labl_max = cv.threshold(img_labl, centroid_threshold, 1, cv.THRESH_BINARY)
         
         if args.plot:
             plt.figure(0)
@@ -195,7 +237,7 @@ def calibrate_grid_main():
         
         
         # Change contrast and brightness of the image
-        img_labl = cv2.convertScaleAbs(img_labl, alpha=10, beta=0)
+        img_labl = cv.convertScaleAbs(img_labl, alpha=10, beta=0)
         
         # Use an adaptative threshold to now get as much as possible of the line
         clr = 'g'
@@ -205,15 +247,15 @@ def calibrate_grid_main():
         elif clr == 'g':
             # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image 
             adp_thr_c = -127
-        img_labl_BW = cv2.adaptiveThreshold(img_labl, 1, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, adp_thr_c)
+        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 51, adp_thr_c)
         
         # Apply the filter around the centroid to only keep the line
-        img_labl_BW = cv2.bitwise_and(img_labl_BW, img_labl_BW, mask = mask)
+        img_labl_BW = cv.bitwise_and(img_labl_BW, img_labl_BW, mask = mask)
         
         # Remove small objects from the image, to only keep the laser trace
         if clr == 'r':
-            img_open = cv2.morphologyEx(img_labl_BW, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 21)))
-            img_erode = cv2.morphologyEx(img_open, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 21)))
+            img_open = cv.morphologyEx(img_labl_BW, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 21)))
+            img_erode = cv.morphologyEx(img_open, cv.MORPH_ERODE, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
             BW = (morphology.remove_small_objects(np.array(img_erode, dtype=bool), small_object_threshold)).astype(int)
         else:
             BW = img_labl_BW
@@ -274,7 +316,7 @@ def calibrate_grid_main():
     meanstd = f"Average image relative angle is: {relangles.mean()} deg, average image error is: {stds.mean()} deg, standard deviation from images relative angles is: {relangles.std()} deg."
     print(meanstd)           
     
-    with open(f"{args.folder}_output_python.txt", 'w') as f:
+    with open(f"{os.path.normpath(args.folder)}_gridangle.txt", 'w') as f:
         for line in images_list:
             f.write(f"{line}\n")
         f.write(f"{meanstd}\n")
@@ -314,7 +356,7 @@ def calibrate_grid_main():
 
         # Plot image with the expected angled line
         plt.figure()
-        plt.imshow(cv2.cvtColor(img0, cv2.COLOR_BGR2RGB))
+        plt.imshow(cv.cvtColor(img0, cv.COLOR_BGR2RGB))
         
         x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-relangles.mean()))]
         y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-relangles.mean()))]
@@ -328,45 +370,6 @@ def calibrate_grid_main():
         plt.xlim(cntrd[1]-cntrd_offset - trace_length, cntrd[1]+cntrd_offset + trace_length)
         
         plt.show()
-        
-        
-def delta_E(image_1_rgb, color_target, sigma=2, dmax=1):
-# Color filter function from photogrammetry software (Author: Federico Astori)
-    
-    # Convert image from RGB to CIE Lab
-    Lab1 = cv2.cvtColor((image_1_rgb/255).astype('float32'), cv2.COLOR_RGB2LAB)
-    
-    # Rewrite the color_target vector from RGB to CIE Lab
-    Lab2 = skc.rgb2lab(color_target.reshape(1, 1, 3))
-
-    # Calculate the difference of color between the image and the color target value
-    deltae1 = skc.deltaE_ciede2000(Lab1, Lab2)
-    
-    # Apply a gaussian filter
-    deltae = scipy.ndimage.gaussian_filter(deltae1,3)
-    
-    # Determine minimum value of the previous result
-    minDeltaE = np.min(deltae)
-
-    # If the difference between the blurred image pixel and the color target is less than 60, then calculates fimage, otherwise return an array of zeros
-    if minDeltaE < 60:
-        fimage = dmax * np.exp(-(deltae-minDeltaE)**2/(2*(sigma**2)))
-        fimage[fimage<0.65] = 0
-    else:
-        fimage = np.zeros_like(deltae) #np.nan
-
-    return fimage #, minDeltaE, Lab1, Lab2, deltae1, deltae
-
-def center_of_mass_per_row(image, centroid):
-# Calculate the center of mass of an image per each row
-    rows_centroid = []
-    for i in range(len(image)):
-        if np.sum(image[i]) != 0:
-            com = ndimage.center_of_mass(image[i])[0]
-            dst = np.linalg.norm(np.array((i,com))-centroid)
-            rows_centroid.append([i, com, dst, np.sum(image[i])])
-    rows_centroid = np.array(rows_centroid)
-    return rows_centroid
 
             
 if __name__ == '__main__':
