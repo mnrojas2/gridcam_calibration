@@ -143,6 +143,9 @@ def center_of_mass_per_row(image, centroid):
 def calibrate_grid_main():
     # Get relative angle and error values from a set of images inside a folder
 
+    # Get images from directory
+    frames_path = os.path.normpath(args.folder)
+    
     # RX0-II Camera intrinsic parameters for calibration
     # Camera matrix (x, y values are inverted since the image will be taken as vertical)
     if args.calibfile:
@@ -170,10 +173,10 @@ def calibrate_grid_main():
         dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
     # Get images from directory
-    print(f"Searching for images in {args.folder}/")
-    images = glob.glob(f'{args.folder}/*.jpg')
+    print(f"Searching for images in {frames_path}")
+    images = glob.glob(f'{frames_path}/*.jpg')
     if len(images) == 0:
-        images = glob.glob(f'{args.folder}/*.png')
+        images = glob.glob(f'{frames_path}/*.png')
     images = sorted(images, key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
     images_list = []
@@ -316,7 +319,7 @@ def calibrate_grid_main():
     meanstd = f"Average image relative angle is: {relangles.mean()} deg, average image error is: {stds.mean()} deg, standard deviation from images relative angles is: {relangles.std()} deg."
     print(meanstd)           
     
-    with open(f"{os.path.normpath(args.folder)}_gridangle.txt", 'w') as f:
+    with open(f"{frames_path}_gridangle.txt", 'w') as f:
         for line in images_list:
             f.write(f"{line}\n")
         f.write(f"{meanstd}\n")
@@ -373,6 +376,7 @@ def calibrate_grid_main():
 
             
 if __name__ == '__main__':
+    # Initialize parser
     parser = argparse.ArgumentParser(description='Obtains the relative angle between the camera and polarized wave grid from a series of pictures.')
     parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
     parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
