@@ -22,7 +22,7 @@ from skimage import color as skc
 from matplotlib import pyplot as plt
 
 
-def calculate_grid_angle(cntrd, I, cntrd_offset, plot):
+def calculate_grid_angle(I, cntrd, cntrd_offset, plot):
     # Auxiliary function to calculate the relative angle between the grid and the camera in the frame
 
     # Get all row centroids and determine the distance between all centroids and the center of the line (cntrd).
@@ -140,16 +140,16 @@ def center_of_mass_per_row(image, centroid):
 
 
 # Main
-def calibrate_grid_main():
+def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_show=False):
     # Get relative angle and error values from a set of images inside a folder
 
     # Get images from directory
-    frames_path = os.path.normpath(args.folder)
+    frames_path = os.path.normpath(folder)
     
     # RX0-II Camera intrinsic parameters for calibration
     # Camera matrix (x, y values are inverted since the image will be taken as vertical)
-    if args.calibfile:
-        cam = camera.Camera(args.calibfile)
+    if calibfile:
+        cam = camera.Camera(calibfile)
         camera_matrix = cam.cam_matrix()
         dist_coeff = cam.dist_coeff()
     else:
@@ -217,7 +217,7 @@ def calibrate_grid_main():
         # Get a binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
         _, img_labl_max = cv.threshold(img_labl, centroid_threshold, 1, cv.THRESH_BINARY)
         
-        if args.plot:
+        if plot:
             plt.figure(0)
             plt.imshow(img_labl_max)
         
@@ -232,7 +232,7 @@ def calibrate_grid_main():
         mask = np.zeros(img0.shape[:2], img0.dtype)
         mask[:, int(cntrd[1])-mask_window:int(cntrd[1])+mask_window] = 1
         
-        if args.plot:
+        if plot:
             plt.figure(1)
             plt.imshow(img_labl_max)
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
@@ -243,27 +243,27 @@ def calibrate_grid_main():
         img_labl = cv.convertScaleAbs(img_labl, alpha=10, beta=0)
         
         # Use an adaptative threshold to now get as much as possible of the line
-        clr = 'g'
-        if clr == 'r':
-            # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image
-            adp_thr_c = 2
-        elif clr == 'g':
-            # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image 
-            adp_thr_c = -127
-        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 51, adp_thr_c)
+        # clr = 'r'
+        # if clr == 'r':
+        #     # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image
+        #     adp_thr_c = 2
+        # elif clr == 'g':
+        #     # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image 
+        #     adp_thr_c = -127
+        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 51, 2)
         
         # Apply the filter around the centroid to only keep the line
         img_labl_BW = cv.bitwise_and(img_labl_BW, img_labl_BW, mask = mask)
         
         # Remove small objects from the image, to only keep the laser trace
-        if clr == 'r':
-            img_open = cv.morphologyEx(img_labl_BW, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 21)))
-            img_erode = cv.morphologyEx(img_open, cv.MORPH_ERODE, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
-            BW = (morphology.remove_small_objects(np.array(img_erode, dtype=bool), small_object_threshold)).astype(int)
-        else:
-            BW = img_labl_BW
+        # if clr == 'rh':
+        img_open = cv.morphologyEx(img_labl_BW, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 21)))
+        img_erode = cv.morphologyEx(img_open, cv.MORPH_ERODE, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
+        BW = (morphology.remove_small_objects(np.array(img_open, dtype=bool), small_object_threshold)).astype(int)
+        # else:
+        # BW = img_labl_BW
         
-        if args.plot:
+        if plot:
             plt.figure(2)
             plt.imshow(BW)
         
@@ -272,7 +272,7 @@ def calibrate_grid_main():
         BW[:, :int(np.ceil(cntrd[1])) - 100] = 0
         BW[:, int(np.ceil(cntrd[1])) + 100:] = 0
         
-        if args.plot:
+        if plot:
             plt.figure(3)
             plt.imshow(BW)
 
@@ -288,7 +288,7 @@ def calibrate_grid_main():
         trace_length = 1000
 
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
-        angle, error = calculate_grid_angle(cntrd, BW, cntrd_offset, args.std_show)
+        angle, error = calculate_grid_angle(BW, cntrd, cntrd_offset, std_show)
         
         relangles.append(angle)
         stds.append(error)
@@ -297,7 +297,7 @@ def calibrate_grid_main():
         images_list.append(final_str)
         print(final_str)
 
-        if args.plot:            
+        if plot:            
             plt.figure(4)
             x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
             y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
@@ -325,7 +325,7 @@ def calibrate_grid_main():
         f.write(f"{meanstd}\n")
     f.close()
     
-    if args.fplot:
+    if fplot:
         # Create subplots
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
@@ -388,4 +388,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Main
-    calibrate_grid_main()
+    calibrate_grid_main(args.folder, args.calibfile, args.plot, args.fplot, args.std_show)
