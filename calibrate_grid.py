@@ -111,7 +111,7 @@ def delta_E(image_1_rgb, color_target, sigma=2, dmax=1):
     deltae1 = skc.deltaE_ciede2000(Lab1, Lab2)
     
     # Apply a gaussian filter
-    deltae = scipy.ndimage.gaussian_filter(deltae1,3)
+    deltae = ndimage.gaussian_filter(deltae1,3)
     
     # Determine minimum value of the previous result
     minDeltaE = np.min(deltae)
