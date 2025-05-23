@@ -14,7 +14,6 @@ import cv2 as cv
 import glob
 import re
 import numpy as np
-import scipy.optimize
 import camera
 from scipy import ndimage
 from skimage import measure, morphology
@@ -184,7 +183,7 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
     stds = []
     
     # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
-    centroid_threshold = 250#200
+    centroid_threshold = 99 # 200
     
     # Change this value to increase or decrease the horizontal (vertical) range where the laser trace would be in the image
     mask_window = 150
@@ -208,11 +207,10 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
             img0 = cv.rotate(img0, cv.ROTATE_90_COUNTERCLOCKWISE)
         
         # Convert image to LAB
-        img_lab = cv.cvtColor(img0, cv.COLOR_BGR2LAB)
+        img_lab = cv.cvtColor((img0/255).astype('float32'), cv.COLOR_BGR2LAB)
 
         # Get lightness channel
         img_labl = img_lab[:,:,0]
-        
         
         # Get a binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
         _, img_labl_max = cv.threshold(img_labl, centroid_threshold, 1, cv.THRESH_BINARY)
@@ -237,32 +235,25 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
             plt.imshow(img_labl_max)
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
-        
+             
+        # Determine the color and get the distance with respect to that color in all the image (converted to LAB space)
+        color_lab = skc.rgb2lab(np.array((255,0,0)).reshape(1, 1, 3))
+        img_labl = skc.deltaE_ciede2000(img_lab, color_lab, kL=2.0, kC=1.0, kH=2.0)
         
         # Change contrast and brightness of the image
         img_labl = cv.convertScaleAbs(img_labl, alpha=10, beta=0)
         
-        # Use an adaptative threshold to now get as much as possible of the line
-        # clr = 'r'
-        # if clr == 'r':
-        #     # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image
-        #     adp_thr_c = 2
-        # elif clr == 'g':
-        #     # Set adaptative threshold constant to add or substract to the mean or weighted mean of the image 
-        #     adp_thr_c = -127
-        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 51, 2)
+        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 51, -25) # -5 for 209
         
         # Apply the filter around the centroid to only keep the line
         img_labl_BW = cv.bitwise_and(img_labl_BW, img_labl_BW, mask = mask)
         
         # Remove small objects from the image, to only keep the laser trace
-        # if clr == 'rh':
-        img_open = cv.morphologyEx(img_labl_BW, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 21)))
-        img_erode = cv.morphologyEx(img_open, cv.MORPH_ERODE, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
-        BW = (morphology.remove_small_objects(np.array(img_open, dtype=bool), small_object_threshold)).astype(int)
-        # else:
-        # BW = img_labl_BW
-        
+        img_open = cv.morphologyEx(img_labl_BW, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
+        img_erode = cv.morphologyEx(img_open, cv.MORPH_CLOSE, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
+        img_close = cv.morphologyEx(img_erode, cv.MORPH_CLOSE, cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 21)))
+        BW = (morphology.remove_small_objects(np.array(img_close, dtype=bool), small_object_threshold)).astype(int)
+                
         if plot:
             plt.figure(2)
             plt.imshow(BW)
