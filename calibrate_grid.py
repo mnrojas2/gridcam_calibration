@@ -243,7 +243,7 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
         # Change contrast and brightness of the image
         img_labl = cv.convertScaleAbs(img_labl, alpha=10, beta=0)
         
-        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 51, -25) # -5 for 209
+        img_labl_BW = cv.adaptiveThreshold(img_labl, 1, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 51, -5) # -5 for 209 / -25 for 206
         
         # Apply the filter around the centroid to only keep the line
         img_labl_BW = cv.bitwise_and(img_labl_BW, img_labl_BW, mask = mask)
