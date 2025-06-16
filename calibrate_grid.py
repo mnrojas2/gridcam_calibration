@@ -19,6 +19,7 @@ from scipy import ndimage
 from skimage import measure, morphology
 from skimage import color as skc
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 
 def calculate_grid_angle(I, cntrd, cntrd_offset, plot):
@@ -178,9 +179,9 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
         images = glob.glob(f'{frames_path}/*.png')
     images = sorted(images, key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
-    images_list = []
     relangles = []
     stds = []
+    frames_results = np.empty((0,3), dtype=float)
     
     # Change this value to segment only the center point of the polarized laser projection (ideally max brightness value of the picture)
     centroid_threshold = 99 # 200
@@ -190,6 +191,9 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
     
     # Change this value to adjust the minimum size of objects in the binarized image while trying to get the best laser trace
     small_object_threshold = 500
+    
+    # Initialize the progress bar
+    pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True, miniters=1)
     
     for fname in images:
         # Read the image
@@ -258,7 +262,6 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
             plt.figure(2)
             plt.imshow(BW)
         
-        
         # Filter just a slice of the former thresholded to get the potential location of the polarized laser line
         BW[:, :int(np.ceil(cntrd[1])) - 100] = 0
         BW[:, int(np.ceil(cntrd[1])) + 100:] = 0
@@ -279,44 +282,49 @@ def calibrate_grid_main(folder, calibfile=False, plot=False, fplot=False, std_sh
         trace_length = 1000
 
         # Execute the calculate_gridangle one more time to get the graphs of the angles and a final result for angle and angle standard deviation
-        angle, error = calculate_grid_angle(BW, cntrd, cntrd_offset, std_show)
+        try:
+            angle, error = calculate_grid_angle(BW, cntrd, cntrd_offset, std_show)
+            
+            fnumber = int(re.search(r'frame(\d+)', fname).group(1))           
+            fresults = np.array([fnumber, angle, error])
+            frames_results = np.vstack((frames_results, fresults))
+
+            if plot:            
+                plt.figure(4)
+                x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
+                y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
+
+                plt.plot(y0, x0, linestyle='--', color='red')
+                
+                x1 = [cntrd[0], cntrd[0] + (cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
+                y1 = [cntrd[1], cntrd[1] + (cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
+
+                plt.plot(y1, x1, linestyle='--', color='red')
+                plt.xlim(cntrd[1]-cntrd_offset - trace_length, cntrd[1]+cntrd_offset + trace_length)
+                
+                plt.show()
+        except: pass
         
-        relangles.append(angle)
-        stds.append(error)
-        
-        final_str = f"{fname.split('\\')[-1]} relative angle is: {str(np.round(angle, 3))} deg +/- {str(np.round(error, 3))} deg"
-        images_list.append(final_str)
-        print(final_str)
-
-        if plot:            
-            plt.figure(4)
-            x0 = [cntrd[0], cntrd[0] + -(cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
-            y0 = [cntrd[1], cntrd[1] + -(cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
-
-            plt.plot(y0, x0, linestyle='--', color='red')
-            
-            x1 = [cntrd[0], cntrd[0] + (cntrd_offset + trace_length) * np.cos(np.deg2rad(-angle))]
-            y1 = [cntrd[1], cntrd[1] + (cntrd_offset + trace_length) * np.sin(np.deg2rad(-angle))]
-
-            plt.plot(y1, x1, linestyle='--', color='red')
-            plt.xlim(cntrd[1]-cntrd_offset - trace_length, cntrd[1]+cntrd_offset + trace_length)
-            
-            # plt.savefig(f'results/bin/{fname.split('\\')[-1][:-4]}-4.png', bbox_inches='tight', dpi=300)
-            plt.show()
-            
-    relangles = np.array(relangles)
-    stds = np.array(stds)
+        # Update the progress bar
+        pbar.update(1)
+    pbar.close()
     
-    meanstd = f"Average image relative angle is: {relangles.mean()} deg, average image error is: {stds.mean()} deg, standard deviation from images relative angles is: {relangles.std()} deg."
+    # Remove outliers
+    # Get percentile threshold
+    per95 = np.percentile(frames_results[:,2], 95)
+    frames_results = frames_results[frames_results[:,2] < per95]
+    
+    # Print statistics results
+    meanstd = f"Average angle: {frames_results[:,1].mean()} deg, average error: {frames_results[:,2].mean()} deg, std angle: {frames_results[:,1].std()} deg."
     print(meanstd)           
     
-    with open(f"{frames_path}_gridangle.txt", 'w') as f:
-        for line in images_list:
-            f.write(f"{line}\n")
-        f.write(f"{meanstd}\n")
-    f.close()
+    # Save the array in a txt file
+    np.savetxt(f"{frames_path}_angle.txt", frames_results, delimiter=',', header='frame number, angle (deg), error (deg)', footer=meanstd)
     
     if fplot:
+        # Get the angles from the array
+        relangles = frames_results[:,1]
+        
         # Create subplots
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
