@@ -106,11 +106,12 @@ def get_frames_from_video(filename):
     cap = cv.VideoCapture(filename)
     if not cap.isOpened():
         print("Error: Cannot open video.")
+        return []
     
     total_frame_count = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
     
     images = []
-    for frame_idx in range(total_frame_count):
+    for frame_idx in tqdm(range(total_frame_count), desc="Loading images", unit=" frames"):
         ret, frame = cap.read()
         if ret:
             images.append(frame)
@@ -187,7 +188,7 @@ def get_wiregrid_angle(folder, calibfile=False, plot=False, fplot=False, std_sho
             img0_std = cv.rotate(img0_std, cv.ROTATE_90_COUNTERCLOCKWISE)
         
         # Get a binary image by thresholding it with a top value of brightness (looking to find the traces of the polarized laser)
-        _, img0_center = cv.threshold(img0, 254, 1, cv.THRESH_BINARY)
+        _, img0_center = cv.threshold(img0, 253, 1, cv.THRESH_BINARY)
         _, img0_max = cv.threshold(img0, 3, 1, cv.THRESH_BINARY)
         
         if plot:
@@ -244,14 +245,14 @@ def get_wiregrid_angle(folder, calibfile=False, plot=False, fplot=False, std_sho
             plt.imshow(BW)
             plt.axhline(y=cntrd[0], linestyle='--', linewidth=0.5, color='red')
             plt.axvline(x=cntrd[1], linestyle='--', linewidth=0.5, color='red')
-            # plt.show()
-            plt.close()
+            plt.show()
+            # plt.close()
 
         # Set offset distance from line center to skip the brightest part of the line
-        cntrd_offset = 100
+        cntrd_offset = 150
 
         # Find the angle and error from the binarized image, and the found center of the trace
-        angle, error = calculate_grid_angle(BW, cntrd, cntrd_offset, plot=std_show)
+        angle, error = calculate_grid_angle(BW, cntrd, cntrd_offset, plot=fplot)
         print(f"Batch {i}: Average angle: {angle} deg, average error: {error} deg")
 
             
@@ -269,4 +270,5 @@ if __name__ == '__main__':
     
     # Main
     videofile = "D:\\Logs\\calibration_tests\\calibration_tests_20250520\\Grid_calibration_4\\C0206.MP4"
-    get_wiregrid_angle(args.folder, args.calibfile, args.plot, args.fplot, args.std_show)
+    data = get_frames_from_video(videofile)
+    # get_wiregrid_angle(args.folder, args.calibfile, args.plot, args.fplot, args.std_show)
