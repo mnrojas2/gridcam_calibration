@@ -269,6 +269,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Main
-    videofile = "D:\\Logs\\calibration_tests\\calibration_tests_20250520\\Grid_calibration_4\\C0206.MP4"
-    data = get_frames_from_video(videofile)
-    # get_wiregrid_angle(args.folder, args.calibfile, args.plot, args.fplot, args.std_show)
+    # videofile = "D:\\Logs\\calibration_tests\\calibration_tests_20250520\\Grid_calibration_4\\C0206.MP4"
+    # data = get_frames_from_video(videofile)
+    get_wiregrid_angle(args.folder, args.calibfile, args.plot, args.fplot, args.std_show)
