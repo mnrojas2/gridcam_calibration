@@ -3,14 +3,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # Tests axis Y
-datefile = ['0813', '0818']
+# datefile = ['0813', '0818']
 # '0821' is the mix of results between '0818' and '0820'
 
 # Tests axis X
-# datefile = ['0827']
+datefile = ['0827', '0828']
 
 # Toggle this to also plot angles
-plot_angles = True
+plot_angles = False
 
 # Vector to save all results to plot normalized histogram
 c_lin_sum = np.empty(2)
@@ -127,6 +127,13 @@ for item in datefile:
     plt.title("Histogram of the linear coefficients")
     plt.legend()
 
+    # Make histogram of tests 1 & 2 only
+    fig_n += 1
+    plt.figure(fig_n)
+    plt.hist(c_lin[:split2]-np.mean(c_lin[:split2]), bins=9, label=item)
+    plt.title("Histogram of the linear coefficients")
+    plt.legend()
+
     # Append all results into the same vector
     c_lin_sum = np.concatenate([c_lin_sum, (c_lin[:split2]-np.mean(c_lin[:split2]))])
 
@@ -136,3 +143,6 @@ plt.figure(fig_n)
 plt.hist(c_lin_sum, bins=9)
 plt.title("Normalized histogram of the sum of linear coefficients")
 plt.show()
+
+
+# Faltan fits lineales
