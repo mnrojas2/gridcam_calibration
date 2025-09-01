@@ -3,14 +3,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # Tests Y axis
-datefile = ['0813', '0818']
+# datefile = ['0813', '0818']
 # '0821' is the mix of results between '0818' and '0820'
 
 # Tests X axis
-# datefile = ['0827', '0828']
+datefile = ['0827', '0828']
 
 # Toggle this to also plot angles
-plot_angles = False
+plot_angles = True
+
+# Toggle this to plot fits in some plots
+plot_fits = True
 
 # Vector to save all results to plot normalized histogram
 c_lin01_sum = np.array([])
@@ -20,6 +23,8 @@ l_angle0_sum = np.array([])
 c_lin0_sum = np.array([])
 l_angle1_sum = np.array([])
 c_lin1_sum = np.array([])
+dy_sum = np.array([])
+c_lin2_sum = np.array([])
 
 for item in datefile:
     filename = f'test_sala_oscura/angle_results_{item}_binary_deg2.csv'
@@ -60,7 +65,8 @@ for item in datefile:
     fig_n = 0
     plt.figure(fig_n)
     plt.scatter(l_angle0, c_quad0, label=item)
-    plt.plot(l_range0, c_quad0_range, '.-',label=f'fitted {item}')
+    if plot_fits:
+        plt.plot(l_range0, c_quad0_range, '.-',label=f'fitted {item}')
     plt.xlabel('degrees (°)')
     plt.title('Quadratic coefficient (adim) vs Laser angle (deg)')
     plt.legend()
@@ -68,7 +74,8 @@ for item in datefile:
     fig_n += 1 
     plt.figure(fig_n)
     plt.scatter(l_angle0, c_lin0, label=item)
-    plt.plot(l_range0, c_lin0_range, '.-',label=f'fitted {item}')
+    if plot_fits:
+        plt.plot(l_range0, c_lin0_range, '.-',label=f'fitted {item}')
     plt.xlabel('degrees (°)')
     plt.title('Linear coefficient (adim) vs Laser angle (deg)')
     plt.legend()
@@ -105,7 +112,8 @@ for item in datefile:
     fig_n += 1 
     plt.figure(fig_n)
     plt.scatter(l_angle1, c_quad1, label=item)
-    plt.plot(l_range1, c_quad1_range, '.-',label=f'fitted {item}')
+    if plot_fits:
+        plt.plot(l_range1, c_quad1_range, '.-',label=f'fitted {item}')
     plt.xlabel('degrees (°)')
     plt.title('Quadratic coefficient (adim) vs Wiregrid angle (deg)')
     plt.legend()
@@ -113,7 +121,8 @@ for item in datefile:
     fig_n += 1 
     plt.figure(fig_n)
     plt.scatter(l_angle1, c_lin1, label=item)
-    plt.plot(l_range1, c_lin1_range, '.-',label=f'fitted {item}')
+    if plot_fits:
+        plt.plot(l_range1, c_lin1_range, '.-',label=f'fitted {item}')
     plt.xlabel('degrees (°)')
     plt.title('Linear coefficient (adim) vs Wiregrid angle (deg)')
     plt.legend()
@@ -143,20 +152,26 @@ for item in datefile:
         c_quad2_range = np.polyval(coeffs_quad2, dy_range)
         c_lin2_range = np.polyval(coeffs_lin2, dy_range)
 
+        # Save linear data for histogram plots
+        dy_sum = np.concatenate([dy_sum, delta_y])
+        c_lin2_sum = np.concatenate([c_lin2_sum, c_lin2])
+
         fig_n += 1
         plt.figure(fig_n)
         plt.scatter(delta_y, c_quad2, label=item)
-        plt.plot(dy_range, c_quad2_range, '.-',label=f'fitted {item}')
+        if plot_fits:
+            plt.plot(dy_range, c_quad2_range, '.-',label=f'fitted {item}')
         plt.xlabel('milimeters (mm)')
-        plt.title('Quadratic coefficient (adim) vs delta Y (mm)')
+        plt.title('Quadratic coefficient (adim) vs delta axis (mm)')
         plt.legend()
 
         fig_n += 1 
         plt.figure(fig_n)
         plt.scatter(delta_y, c_lin2, label=item)
-        plt.plot(dy_range, c_lin2_range, '.-',label=f'fitted {item}')
+        if plot_fits:
+            plt.plot(dy_range, c_lin2_range, '.-',label=f'fitted {item}')
         plt.xlabel('milimeters (mm)')
-        plt.title('Linear coefficient (adim) vs delta Y (mm)')
+        plt.title('Linear coefficient (adim) vs delta axis (mm)')
         plt.legend()
 
         if plot_angles:
@@ -165,7 +180,7 @@ for item in datefile:
             plt.scatter(delta_y, angle2, label=item)
             plt.xlabel('milimeters (mm)')
             plt.ylabel('degrees (°)')
-            plt.title('Measured projected angle (deg) vs delta Y (mm)')
+            plt.title('Measured projected angle (deg) vs delta axis (mm)')
             plt.legend()
 
         print(f'Angle standard deviation for {item}: {np.std(angle2)} for different laser offsets in one axis.')
@@ -199,25 +214,39 @@ plt.legend()
 plt.title("Normalized histogram of the sum of linear coefficients")
 
 # Fit a line for all datasets together and plot it alongside the other two
-### Test 1 fit
-coeffs_lin0sum, cov = np.polyfit(l_angle0_sum, c_lin0_sum, deg=1, cov=True)
-c_lin0sum_range = np.polyval(coeffs_lin0sum, l_range0)
+if plot_fits:
+    ### Test 1 fit
+    coeffs_lin0sum, cov = np.polyfit(l_angle0_sum, c_lin0_sum, deg=1, cov=True)
+    c_lin0sum_range = np.polyval(coeffs_lin0sum, l_range0)
 
-fig_m = 1
-plt.figure(fig_m)
-plt.plot(l_range0, c_lin0sum_range, '.-',label=f'fitted all')
-plt.legend()
+    fig_m = 1
+    plt.figure(fig_m)
+    plt.plot(l_range0, c_lin0sum_range, '.-',label=f'fitted all')
+    plt.legend()
 
-### Test 2 fit
-coeffs_lin1sum, cov = np.polyfit(l_angle1_sum, c_lin1_sum, deg=1, cov=True)
-c_lin1sum_range = np.polyval(coeffs_lin1sum, l_range1)
+    ### Test 2 fit
+    coeffs_lin1sum, cov = np.polyfit(l_angle1_sum, c_lin1_sum, deg=1, cov=True)
+    c_lin1sum_range = np.polyval(coeffs_lin1sum, l_range1)
 
-fig_m = 3
-if plot_angles:
-    fig_m += 1
-plt.figure(fig_m)
-plt.plot(l_range1, c_lin1sum_range, '.-',label=f'fitted all')
-plt.legend()
+    fig_m = 3
+    if plot_angles:
+        fig_m += 1
+    plt.figure(fig_m)
+    plt.plot(l_range1, c_lin1sum_range, '.-',label=f'fitted all')
+    plt.legend()
+
+    ### Test 3 fit
+    try:
+        coeffs_lin2sum, cov = np.polyfit(dy_sum, c_lin2_sum, deg=1, cov=True)
+        c_lin2sum_range = np.polyval(coeffs_lin2sum, dy_range)
+
+        fig_m = 5
+        if plot_angles:
+            fig_m += 2
+        plt.figure(fig_m)
+        plt.plot(dy_range, c_lin2sum_range, '.-',label=f'fitted all')
+        plt.legend()
+    except: pass
 
 # Plot all figures
 plt.show()
