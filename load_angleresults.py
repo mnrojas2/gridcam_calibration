@@ -13,7 +13,13 @@ datefile = ['0813', '0818']
 plot_angles = False
 
 # Vector to save all results to plot normalized histogram
-c_lin_sum = np.empty(2)
+c_lin01_sum = np.array([])
+
+# Vector to save results for cases 1 and 2, independently to fit in corresponding figures.
+l_angle0_sum = np.array([])
+c_lin0_sum = np.array([])
+l_angle1_sum = np.array([])
+c_lin1_sum = np.array([])
 
 for item in datefile:
     filename = f'test_sala_oscura/angle_results_{item}_binary_deg2.csv'
@@ -21,6 +27,7 @@ for item in datefile:
     data_names = np.genfromtxt(filename, skip_header=1, delimiter=',', dtype=None, encoding='utf-8', usecols=range(0,1))
     data_values = np.genfromtxt(filename, skip_header=1, delimiter=',', dtype=float, encoding='utf-8', usecols=range(1,8))
 
+    # Get all columns data
     laser_angle = data_values[:,0]
     grid_angle = data_values[:,1]
     c_quad = data_values[:,2]
@@ -29,23 +36,28 @@ for item in datefile:
     angle = data_values[:,5]
     sig_angle = data_values[:,6]
     
+    # Indicate where the split in experiments happen
     split1 = 10
     split2 = 18
 
-    #### Only changing the Angle of the laser keeping the wiregrid in the same state ####
+    #### Test 1: Only changing the Angle of the laser keeping the wiregrid in the same state ####
     l_angle0 = laser_angle[:split1]
     c_quad0 = c_quad[:split1]
     c_lin0 = c_lin[:split1]
     angle0 = angle[:split1]
 
+    # Produce fit lines for both cases, quadratic coefficient and linear coefficient
     l_range0 = np.linspace(l_angle0[0], l_angle0[-1], 51)
     coeffs_quad0, cov =  np.polyfit(l_angle0, c_quad0, deg=1, cov=True)
     coeffs_lin0, cov = np.polyfit(l_angle0, c_lin0, deg=1, cov=True)
     c_quad0_range = np.polyval(coeffs_quad0, l_range0)
     c_lin0_range = np.polyval(coeffs_lin0, l_range0)
 
+    # Save linear data for histogram plots
+    l_angle0_sum = np.concatenate([l_angle0_sum, l_angle0])
+    c_lin0_sum = np.concatenate([c_lin0_sum, c_lin0])
+
     fig_n = 0
-    # coeffs, cov = np.polyfit(xx - h/2 - bt_offset, yy - w/2, deg=deg, cov=True)
     plt.figure(fig_n)
     plt.scatter(l_angle0, c_quad0, label=item)
     plt.plot(l_range0, c_quad0_range, '.-',label=f'fitted {item}')
@@ -73,17 +85,22 @@ for item in datefile:
     print(f'Angle standard deviation for {item}: {np.std(angle0)} for different laser positions.')
 
 
-    #### Same angle between laser and wiregrid ####
+    #### Test 2: Same angle between laser and wiregrid ####
     l_angle1 = laser_angle[split1:split2]
     c_quad1 = c_quad[split1:split2]
     c_lin1 = c_lin[split1:split2]
     angle1 = angle[split1:split2]
 
+    # Produce fit lines for both cases, quadratic coefficient and linear coefficient
     l_range1 = np.linspace(l_angle1[0], l_angle1[-1], 51)
     coeffs_quad1, cov =  np.polyfit(l_angle1, c_quad1, deg=1, cov=True)
     coeffs_lin1, cov = np.polyfit(l_angle1, c_lin1, deg=1, cov=True)
     c_quad1_range = np.polyval(coeffs_quad1, l_range1)
     c_lin1_range = np.polyval(coeffs_lin1, l_range1)
+
+    # Save linear data for histogram plots
+    l_angle1_sum = np.concatenate([l_angle1_sum, l_angle1])
+    c_lin1_sum = np.concatenate([c_lin1_sum, c_lin1])
 
     fig_n += 1 
     plt.figure(fig_n)
@@ -113,12 +130,13 @@ for item in datefile:
     print(f'Angle standard deviation for {item}: {np.std(angle1)} for different wall proyections.')
 
     try:
-        # Changing the position of the laser over the wiregrid across the Y axis
+        #### Test 3: Changing the position of the laser over the wiregrid across the X or Y axis
         delta_y = np.array([-30, -30, -10, -10, 0, 0, 10, 10, 30, 30])
         c_quad2 = c_quad[split2:]
         c_lin2 = c_lin[split2:]
         angle2 = angle[split2:]
 
+        # Produce fit lines for both cases, quadratic coefficient and linear coefficient
         dy_range = np.linspace(delta_y[0], delta_y[-1], 51)
         coeffs_quad2, cov =  np.polyfit(delta_y, c_quad2, deg=1, cov=True)
         coeffs_lin2, cov = np.polyfit(delta_y, c_lin2, deg=1, cov=True)
@@ -153,35 +171,53 @@ for item in datefile:
         print(f'Angle standard deviation for {item}: {np.std(angle2)} for different laser offsets in one axis.')
 
     except:
-        print("No offset tests were done")
+        print("Test 3 was not done")
 
 
     # Make histogram of tests 1 & 2 only
-    c_lin12 = c_lin[:split2]
-    c_lin12_norm = c_lin12-np.mean(c_lin12)
+    c_lin01 = c_lin[:split2]
+    c_lin01_norm = c_lin01-np.mean(c_lin01)
 
     fig_n += 1
     plt.figure(fig_n)
-    plt.hist(c_lin12, bins=9, label=item)
-    plt.title("Histogram of the linear coefficients")
-    plt.legend()
-
-    # Make histogram of tests 1 & 2 only
-    fig_n += 1
-    plt.figure(fig_n)
-    plt.hist(c_lin12_norm, bins=9, label=item)
+    plt.hist(c_lin01, bins=9, label=item)
     plt.title("Histogram of the linear coefficients")
     plt.legend()
 
     # Append all results into the same vector
-    c_lin_sum = np.concatenate([c_lin_sum, c_lin12_norm])
+    c_lin01_sum = np.concatenate([c_lin01_sum, c_lin01_norm])
 
-# Histogram of all results across all measurements
-fig_n += 1
-plt.figure(fig_n)
-plt.hist(c_lin_sum, bins=9)
+    # Make normalized histogram of tests 1 & 2 only
+    fig_n += 1
+    plt.figure(fig_n)
+    plt.hist(c_lin01_norm, bins=9, alpha=.75, label=item)
+    plt.title("Histogram of the linear coefficients")
+
+# To the last figure, add the histogram with results of all measurements
+plt.hist(c_lin01_sum, bins=9, label='All', zorder=0)
+plt.legend()
 plt.title("Normalized histogram of the sum of linear coefficients")
+
+# Fit a line for all datasets together and plot it alongside the other two
+### Test 1 fit
+coeffs_lin0sum, cov = np.polyfit(l_angle0_sum, c_lin0_sum, deg=1, cov=True)
+c_lin0sum_range = np.polyval(coeffs_lin0sum, l_range0)
+
+fig_m = 1
+plt.figure(fig_m)
+plt.plot(l_range0, c_lin0sum_range, '.-',label=f'fitted all')
+plt.legend()
+
+### Test 2 fit
+coeffs_lin1sum, cov = np.polyfit(l_angle1_sum, c_lin1_sum, deg=1, cov=True)
+c_lin1sum_range = np.polyval(coeffs_lin1sum, l_range1)
+
+fig_m = 3
+if plot_angles:
+    fig_m += 1
+plt.figure(fig_m)
+plt.plot(l_range1, c_lin1sum_range, '.-',label=f'fitted all')
+plt.legend()
+
+# Plot all figures
 plt.show()
-
-
-# Faltan fits lineales
