@@ -2,18 +2,18 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 
-test_x = 1
+test_x = 0
+testdict = {1: 'X', 0: 'Y'}
 # Tests Y axis fixed, move on X
 if test_x:
     datefile = ['0814', '0821']
+    datedict = {'0814': 'Day 1', '0821': 'Day 2'}
 # '0821' is the mix of results between '0818' and '0820'
 # '0814' is the mix of results between '0813' and '0904'
 else:
 # Tests X axis fixed, move on Y
     datefile = ['0827', '0828']
-
-# Toggle this to also plot angles
-plot_angles = False
+    datedict = {'0827': 'Day 1', '0828': 'Day 2'}
 
 # Toggle this to plot fits in some plots
 plot_fits = True
@@ -55,8 +55,8 @@ for item in datefile:
 
     #### Test 1: Only changing the Angle of the laser keeping the wiregrid in the same state ####
     l_angle0 = laser_angle[:split1]
-    c_quad0 = c_quad[:split1]
-    c_lin0 = c_lin[:split1]
+    c_quad0 = np.rad2deg(c_quad[:split1])
+    c_lin0 = np.rad2deg(c_lin[:split1])
     angle0 = angle[:split1]
 
     # Produce fit lines for both cases, quadratic coefficient and linear coefficient
@@ -77,30 +77,23 @@ for item in datefile:
 
     fig_n = 0
     plt.figure(fig_n)
-    plt.scatter(l_angle0, c_quad0, label=item)
+    plt.scatter(l_angle0, c_quad0, label=datedict[item])
     if plot_fits:
-        plt.plot(l_range0, c_quad0_range, '.-',label=f'fitted {item}')
+        plt.plot(l_range0, c_quad0_range, '.-',label=f'{datedict[item]} fit')
     plt.xlabel('degrees (°)')
-    plt.title('Quadratic coefficient (adim) vs Laser angle (deg)')
+    plt.ylabel('degrees (°)')
+    # plt.title('Quadratic coefficient (adim) vs Laser angle (deg)')
     plt.legend()
 
     fig_n += 1 
     plt.figure(fig_n)
-    plt.scatter(l_angle0, c_lin0, label=item)
+    plt.scatter(l_angle0, c_lin0, label=datedict[item])
     if plot_fits:
-        plt.plot(l_range0, c_lin0_range, '.-',label=f'fitted {item}')
+        plt.plot(l_range0, c_lin0_range, '.-',label=f'{datedict[item]} fit')
     plt.xlabel('degrees (°)')
-    plt.title('Linear coefficient (adim) vs Laser angle (deg)')
+    plt.ylabel('degrees (°)')
+    # plt.title('Linear coefficient (adim) vs Laser angle (deg)')
     plt.legend()
-
-    if plot_angles:
-        fig_n += 1 
-        plt.figure(fig_n)
-        plt.scatter(l_angle0, angle0, label=item)
-        plt.xlabel('degrees (°)')
-        plt.ylabel('degrees (°)')
-        plt.title('Measured projected angle (deg) vs Laser angle (deg)')
-        plt.legend()
 
     # print(f'Angle standard deviation for {item}: {np.std(angle0)} for different laser positions.')
     print(f'Test 1 {item} quad coeff slope: {coeffs_quad0[0]} std: {std_quad0[0]}')
@@ -109,8 +102,8 @@ for item in datefile:
 
     #### Test 2: Same angle between laser and wiregrid ####
     l_angle1 = laser_angle[split1:split2]
-    c_quad1 = c_quad[split1:split2]
-    c_lin1 = c_lin[split1:split2]
+    c_quad1 = np.rad2deg(c_quad[split1:split2])
+    c_lin1 = np.rad2deg(c_lin[split1:split2])
     angle1 = angle[split1:split2]
 
     # Produce fit lines for both cases, quadratic coefficient and linear coefficient
@@ -129,30 +122,23 @@ for item in datefile:
 
     fig_n += 1 
     plt.figure(fig_n)
-    plt.scatter(l_angle1, c_quad1, label=item)
+    plt.scatter(l_angle1, c_quad1, label=datedict[item])
     if plot_fits:
-        plt.plot(l_range1, c_quad1_range, '.-',label=f'fitted {item}')
+        plt.plot(l_range1, c_quad1_range, '.-',label=f'{datedict[item]} fit')
     plt.xlabel('degrees (°)')
-    plt.title('Quadratic coefficient (adim) vs Wiregrid angle (deg)')
+    plt.ylabel('degrees (°)')
+    # plt.title('Quadratic coefficient (adim) vs Wiregrid angle (deg)')
     plt.legend()
 
     fig_n += 1 
     plt.figure(fig_n)
-    plt.scatter(l_angle1, c_lin1, label=item)
+    plt.scatter(l_angle1, c_lin1, label=datedict[item])
     if plot_fits:
-        plt.plot(l_range1, c_lin1_range, '.-',label=f'fitted {item}')
+        plt.plot(l_range1, c_lin1_range, '.-',label=f'{datedict[item]} fit')
     plt.xlabel('degrees (°)')
-    plt.title('Linear coefficient (adim) vs Wiregrid angle (deg)')
+    plt.ylabel('degrees (°)')
+    # plt.title('Linear coefficient (adim) vs Wiregrid angle (deg)')
     plt.legend()
-
-    if plot_angles:
-        fig_n += 1 
-        plt.figure(fig_n)
-        plt.scatter(l_angle1, angle1, label=item)
-        plt.xlabel('degrees (°)')
-        plt.ylabel('degrees (°)')
-        plt.title('Measured projected angle (deg) vs Wiregrid angle (deg)')
-        plt.legend()
 
     # print(f'Angle standard deviation for {item}: {np.std(angle1)} for different wall proyections.')
     print(f'Test 2 {item} quad coeff slope: {coeffs_quad1[0]} std: {std_quad1[0]}')
@@ -161,8 +147,8 @@ for item in datefile:
     try:
         #### Test 3: Changing the position of the laser over the wiregrid across the X or Y axis
         delta_y = np.array([-30, -30, -10, -10, 0, 0, 10, 10, 30, 30])
-        c_quad2 = c_quad[split2:]
-        c_lin2 = c_lin[split2:]
+        c_quad2 = np.rad2deg(c_quad[split2:])
+        c_lin2 = np.rad2deg(c_lin[split2:])
         angle2 = angle[split2:]
 
         # Produce fit lines for both cases, quadratic coefficient and linear coefficient
@@ -181,30 +167,22 @@ for item in datefile:
 
         fig_n += 1
         plt.figure(fig_n)
-        plt.scatter(delta_y, c_quad2, label=item)
+        plt.scatter(delta_y, c_quad2, label=datedict[item])
         if plot_fits:
-            plt.plot(dy_range, c_quad2_range, '.-',label=f'fitted {item}')
+            plt.plot(dy_range, c_quad2_range, '.-',label=f'{datedict[item]} fit')
         plt.xlabel('milimeters (mm)')
-        plt.title('Quadratic coefficient (adim) vs delta axis (mm)')
+        # plt.title('Quadratic coefficient (adim) vs delta axis (mm)')
         plt.legend()
 
         fig_n += 1 
         plt.figure(fig_n)
-        plt.scatter(delta_y, c_lin2, label=item)
+        plt.scatter(delta_y, c_lin2, label=datedict[item])
         if plot_fits:
-            plt.plot(dy_range, c_lin2_range, '.-',label=f'fitted {item}')
+            plt.plot(dy_range, c_lin2_range, '.-',label=f'{datedict[item]} fit')
         plt.xlabel('milimeters (mm)')
-        plt.title('Linear coefficient (adim) vs delta axis (mm)')
+        plt.ylabel('degrees (°)')
+        # plt.title('Linear coefficient (adim) vs delta axis (mm)')
         plt.legend()
-
-        if plot_angles:
-            fig_n += 1 
-            plt.figure(fig_n)
-            plt.scatter(delta_y, angle2, label=item)
-            plt.xlabel('milimeters (mm)')
-            plt.ylabel('degrees (°)')
-            plt.title('Measured projected angle (deg) vs delta axis (mm)')
-            plt.legend()
 
         # print(f'Angle standard deviation for {item}: {np.std(angle2)} for different laser offsets in one axis.')
         print(f'Test 3 {item} quad coeff slope: {coeffs_quad2[0]} std: {std_quad2[0]}')
@@ -220,8 +198,8 @@ for item in datefile:
 
     fig_n += 1
     plt.figure(fig_n)
-    plt.hist(c_lin01, bins=9, label=item)
-    plt.title("Histogram of the linear coefficients")
+    plt.hist(c_lin01, bins=9, label=datedict[item])
+    # plt.title("Histogram of the linear coefficients")
     plt.legend()
 
     # Append all results into the same vector
@@ -230,13 +208,13 @@ for item in datefile:
     # Make normalized histogram of tests 1 & 2 only
     fig_n += 1
     plt.figure(fig_n)
-    plt.hist(c_lin01_norm, bins=9, alpha=.75, label=item)
-    plt.title("Histogram of the linear coefficients")
+    plt.hist(c_lin01_norm, bins=9, alpha=.75, label=datedict[item])
+    # plt.title("Histogram of the linear coefficients")
 
 # To the last figure, add the histogram with results of all measurements
 plt.hist(c_lin01_sum, bins=9, label='All', zorder=0)
 plt.legend()
-plt.title("Normalized histogram of the sum of linear coefficients")
+# plt.title("Normalized histogram of the sum of linear coefficients")
 
 # Fit a line for all datasets together and plot it alongside the other two
 if plot_fits:
@@ -251,13 +229,15 @@ if plot_fits:
 
     fig_m = 0
     plt.figure(fig_m)
-    plt.plot(l_range0, c_quad0sum_range, '.-',label=f'fitted all')
+    plt.plot(l_range0, c_quad0sum_range, '.-',label=f'Both days fit')
     plt.legend()
+    plt.savefig(f'test_sala_oscura/figs/{testdict[test_x]}axis_quad_test1.png', dpi=600)
 
     fig_m += 1
     plt.figure(fig_m)
-    plt.plot(l_range0, c_lin0sum_range, '.-',label=f'fitted all')
+    plt.plot(l_range0, c_lin0sum_range, '.-',label=f'Both days fit')
     plt.legend()
+    plt.savefig(f'test_sala_oscura/figs/{testdict[test_x]}axis_lin_test1.png', dpi=600)
 
     print(f'Test 1 {'both days'} quad coeff slope: {coeffs_quad0sum[0]} std: {std_quad0sum[0]}')
     print(f'Test 1 {'both days'} lin coeff slope: {coeffs_lin0sum[0]} std: {std_lin0sum[0]}')
@@ -271,17 +251,17 @@ if plot_fits:
     c_lin1sum_range = np.polyval(coeffs_lin1sum, l_range1)
     std_lin1sum = np.sqrt(np.diag(cov_lin1sum))
 
-    fig_m = 2
-    if plot_angles:
-        fig_m += 1
+    fig_m += 1
     plt.figure(fig_m)
-    plt.plot(l_range1, c_quad1sum_range, '.-',label=f'fitted all')
+    plt.plot(l_range1, c_quad1sum_range, '.-',label=f'Both days fit')
     plt.legend()
+    plt.savefig(f'test_sala_oscura/figs/{testdict[test_x]}axis_quad_test2.png', dpi=600)
 
     fig_m += 1
     plt.figure(fig_m)
-    plt.plot(l_range1, c_lin1sum_range, '.-',label=f'fitted all')
+    plt.plot(l_range1, c_lin1sum_range, '.-',label=f'Both days fit')
     plt.legend()
+    plt.savefig(f'test_sala_oscura/figs/{testdict[test_x]}axis_lin_test2.png', dpi=600)
 
     print(f'Test 2 {'both days'} quad coeff slope: {coeffs_quad1sum[0]} std: {std_quad1sum[0]}')
     print(f'Test 2 {'both days'} lin coeff slope: {coeffs_lin1sum[0]} std: {std_lin1sum[0]}')
@@ -296,17 +276,17 @@ if plot_fits:
         c_lin2sum_range = np.polyval(coeffs_lin2sum, dy_range)
         std_lin2sum = np.sqrt(np.diag(cov_lin2sum))
 
-        fig_m = 4
-        if plot_angles:
-            fig_m += 2
+        fig_m += 1
         plt.figure(fig_m)
-        plt.plot(dy_range, c_quad2sum_range, '.-',label=f'fitted all')
+        plt.plot(dy_range, c_quad2sum_range, '.-',label=f'Both days fit')
         plt.legend()
+        plt.savefig(f'test_sala_oscura/figs/{testdict[test_x]}axis_quad_test3.png', dpi=600)
 
         fig_m += 1
         plt.figure(fig_m)
-        plt.plot(dy_range, c_lin2sum_range, '.-',label=f'fitted all')
+        plt.plot(dy_range, c_lin2sum_range, '.-',label=f'Both days fit')
         plt.legend()
+        plt.savefig(f'test_sala_oscura/figs/{testdict[test_x]}axis_lin_test3.png', dpi=600)
 
         print(f'Test 3 {'both days'} quad coeff slope: {coeffs_quad2sum[0]} std: {std_quad2sum[0]}')
         print(f'Test 3 {'both days'} lin coeff slope: {coeffs_lin2sum[0]} std: {std_lin2sum[0]}')
@@ -315,6 +295,7 @@ if plot_fits:
 
 # Plot all figures
 plt.show()
+plt.close()
 
 
 # Calcular media y desviación estandar en c_quad
